@@ -5,10 +5,32 @@ import { User, Menu, Upload, Trash, Edit, Eye, X, Check, FileText, Image, File }
 import Nav from '@/components/Nav';
 import Link from "next/link";
 
+// Fix the document type definition
+interface Document {
+  id: string | number;
+  name: string;
+  type: string;
+  date: string;
+  size?: string;
+  url?: string;
+  pathname?: string;
+}
+
+// Define a file type for the API response
+interface FileResponse {
+  name: string;
+  type: string;
+  modified: string | number | Date;
+  size: number;
+  url: string;
+  path: string;
+  pathname: string;
+}
+
 const DocumentsPage = () => {
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [documents, setDocuments] = useState([
+  const [documents, setDocuments] = useState<Document[]>([
     { id: 1, name: 'Medical Report 2023', type: 'pdf', date: '2023-10-15' },
     { id: 2, name: 'Prescription 04/2022', type: 'pdf', date: '2022-04-22' },
     { id: 3, name: 'Lab Results 06/2021', type: 'pdf', date: '2021-06-10' },
@@ -16,10 +38,10 @@ const DocumentsPage = () => {
   ]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [editingDocument, setEditingDocument] = useState(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [newFileName, setNewFileName] = useState('');
-  const [viewingDocument, setViewingDocument] = useState(null);
+  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +50,7 @@ const DocumentsPage = () => {
   // Fetch documents on component mount
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDocuments = async () => {
     setIsLoading(true);
@@ -44,12 +66,14 @@ const DocumentsPage = () => {
       const data = await response.json();
       
       if (data.success) {
-        setDocuments(data.files.map(file => ({
-          id: file.name,
+        setDocuments(data.files.map((file: FileResponse) => ({
+          id: file.pathname,
           name: file.name,
           type: file.type,
           date: new Date(file.modified).toLocaleDateString(),
-          size: formatFileSize(file.size)
+          size: formatFileSize(file.size),
+          url: file.url,
+          pathname: file.pathname
         })));
       } else {
         setError(data.error || 'Failed to fetch documents');
@@ -62,18 +86,19 @@ const DocumentsPage = () => {
     }
   };
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     else return (bytes / 1048576).toFixed(1) + ' MB';
   };
+  
 
   // Filter documents based on search query
   const filteredDocuments = documents
     .filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
-      const aValue = a[sortBy];
-      const bValue = b[sortBy];
+      const aValue = a[sortBy as keyof Document];
+      const bValue = b[sortBy as keyof Document];
       
       if (sortOrder === 'asc') {
         return aValue > bValue ? 1 : -1;
@@ -82,8 +107,8 @@ const DocumentsPage = () => {
       }
     });
 
-  // Handle file upload
-  const handleFileChange = (e) => {
+  // Fix the handleFileChange function type
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
     }
@@ -125,8 +150,8 @@ const DocumentsPage = () => {
     }
   };
 
-  // CRUD operations
-  const deleteDocument = async (filename) => {
+  // Fix the deleteDocument function parameter type
+  const deleteDocument = async (doc: Document) => {
     if (!confirm('Are you sure you want to delete this document?')) {
       return;
     }
@@ -140,7 +165,7 @@ const DocumentsPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ filename }),
+        body: JSON.stringify({ pathname: doc.pathname }),
       });
       
       const data = await response.json();
@@ -158,7 +183,8 @@ const DocumentsPage = () => {
     }
   };
 
-  const startEditDocument = (doc) => {
+  // Fix the startEditDocument function parameter type
+  const startEditDocument = (doc: Document) => {
     setEditingDocument(doc);
     setNewFileName(doc.name);
   };
@@ -167,19 +193,25 @@ const DocumentsPage = () => {
     if (!newFileName.trim()) return;
     
     setDocuments(documents.map(doc => 
-      doc.id === editingDocument.id 
+      doc.id === editingDocument?.id 
         ? { ...doc, name: newFileName } 
         : doc
     ));
     setEditingDocument(null);
   };
 
-  const viewDocument = (doc) => {
-    // Open the document in a new tab
-    window.open(`/api/view-file?filename=${encodeURIComponent(doc.name)}`, '_blank');
+  // Fix the viewDocument function parameter type
+  const viewDocument = (doc: Document) => {
+    // For images and PDFs, we can directly open the URL
+    if (['jpg', 'jpeg', 'png', 'gif', 'pdf'].includes(doc.type)) {
+      window.open(doc.url, '_blank');
+    } else {
+      // For other file types, use the view-file API
+      window.open(`/api/view-file?pathname=${encodeURIComponent(doc.pathname)}`, '_blank');
+    }
   };
 
-  const getFileIcon = (type) => {
+  const getFileIcon = (type: string) => {
     switch (type) {
       case 'pdf':
         return <FileText className="h-8 w-8 text-red-500" />;
@@ -197,6 +229,28 @@ const DocumentsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">
+      {/* Show loading indicator */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg">
+            <p>Loading...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Show error message if any */}
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+          <p>{error}</p>
+          <button 
+            onClick={() => setError('')}
+            className="absolute top-0 right-0 p-2"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      
       <div className="flex h-screen overflow-hidden">
         {/* Mobile Sidebar Toggle */}
         <button
@@ -220,7 +274,7 @@ const DocumentsPage = () => {
             <Link href="/home">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-lime-400 to-green-500 rounded-xl flex items-center justify-center">
-                  <User className="w-6 h-6 text-white" />
+                  <User className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-lime-600 to-green-600 bg-clip-text text-transparent">
                   MediSage
@@ -363,7 +417,7 @@ const DocumentsPage = () => {
                             <Edit className="h-5 w-5" />
                           </button>
                           <button
-                            onClick={() => deleteDocument(doc.id)}
+                            onClick={() => deleteDocument(doc)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
                             title="Delete"
                           >
@@ -403,13 +457,13 @@ const DocumentsPage = () => {
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
             <div className="mb-4">
               <div 
                 className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50"
-                onClick={() => fileInputRef.current.click()}
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-1">

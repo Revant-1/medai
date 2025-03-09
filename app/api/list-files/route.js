@@ -1,31 +1,25 @@
 import { NextResponse } from 'next/server';
-import { readdir, stat } from 'fs/promises';
-import { join } from 'path';
+import { list } from '@vercel/blob';
 
-// Define a consistent upload directory path
-const UPLOAD_DIR = 'D:/IISER project/website/project/uploads';
+// Define a consistent upload directory path for organization in Vercel Blob
+const UPLOAD_PREFIX = 'medisage-uploads';
 
 export async function GET() {
   try {
-    // Read the directory contents
-    const files = await readdir(UPLOAD_DIR);
+    // List all blobs with the prefix
+    const { blobs } = await list({ prefix: UPLOAD_PREFIX });
     
-    // Get file details
-    const fileDetails = await Promise.all(
-      files.map(async (filename) => {
-        const filePath = join(UPLOAD_DIR, filename);
-        const stats = await stat(filePath);
-        
-        return {
-          name: filename,
-          path: filePath,
-          size: stats.size,
-          created: stats.birthtime,
-          modified: stats.mtime,
-          type: filename.split('.').pop().toLowerCase()
-        };
-      })
-    );
+    // Format the response
+    const fileDetails = blobs.map(blob => {
+      return {
+        name: blob.pathname.split('/').pop(), // Extract just the filename
+        path: blob.pathname,
+        url: blob.url,
+        size: blob.size,
+        modified: blob.uploadedAt,
+        type: blob.pathname.split('.').pop().toLowerCase()
+      };
+    });
     
     return NextResponse.json({
       success: true,

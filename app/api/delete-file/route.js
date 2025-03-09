@@ -1,35 +1,22 @@
 import { NextResponse } from 'next/server';
-import { unlink, access } from 'fs/promises';
-import { join } from 'path';
+import { del } from '@vercel/blob';
 
-// Define a consistent upload directory path
-const UPLOAD_DIR = 'D:/IISER project/website/project/uploads';
+// Define a consistent upload directory path for organization in Vercel Blob
+const UPLOAD_PREFIX = 'medisage-uploads';
 
 export async function DELETE(req) {
   try {
-    const { filename } = await req.json();
+    const { pathname } = await req.json();
     
-    if (!filename) {
+    if (!pathname) {
       return NextResponse.json(
-        { error: 'No filename provided' },
+        { error: 'No file pathname provided' },
         { status: 400 }
       );
     }
     
-    const filePath = join(UPLOAD_DIR, filename);
-    
-    // Check if file exists before attempting to delete
-    try {
-      await access(filePath);
-    } catch (error) {
-      return NextResponse.json(
-        { error: 'File not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Delete the file
-    await unlink(filePath);
+    // Delete the blob
+    await del(pathname);
     
     return NextResponse.json({
       success: true,

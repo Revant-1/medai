@@ -9,12 +9,14 @@ import Nav from "@/components/Nav";
 import Image from "next/image";
 import Link from "next/link";
 
+type LucideIconType = typeof LucideIcon;
+
 interface MetricCardProps {
   value: string;
   unit: string;
   label: string;
   color: string;
-  icon: LucideIcon;
+  icon: LucideIconType;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ value, unit, label, color, icon: Icon }) => (
@@ -109,10 +111,10 @@ const DashboardView = () => {
                 <div className="flex gap-2">
                   <Input placeholder="Type something" className="flex-1" />
                   <Link href="/chat">
-                  <Button className="bg-black">
-                    <MessageSquare className="w-4 h-4" />
-                  </Button>
-                    </Link>
+                    <Button className="bg-black">
+                      <MessageSquare className="w-4 h-4" />
+                    </Button>
+                  </Link>
                 </div>
               </Card>
 
@@ -122,12 +124,8 @@ const DashboardView = () => {
                   <div className="flex items-center gap-4">
                     <Upload className="w-6 h-6 shrink-0" />
                     <div>
-                      <h3 className="font-bold">
-                        Gain deeper insights and precision
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Analyze your reports effortlessly
-                      </p>
+                      <h3 className="font-bold">Gain deeper insights and precision</h3>
+                      <p className="text-sm text-gray-500">Analyze your reports effortlessly</p>
                     </div>
                   </div>
                   <Button className="bg-black w-full sm:w-auto">Upload now</Button>
