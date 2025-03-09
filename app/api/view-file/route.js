@@ -23,7 +23,7 @@ export async function GET(req) {
     // Check if file exists
     try {
       await access(filePath);
-    } catch (_error) {
+    } catch {
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
@@ -50,4 +50,4 @@ export async function GET(req) {
       { status: 500 }
     );
   }
-} 
+}
