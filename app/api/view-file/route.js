@@ -23,7 +23,7 @@ export async function GET(req) {
     // Check if file exists
     try {
       await access(filePath);
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }

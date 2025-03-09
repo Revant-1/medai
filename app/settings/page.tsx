@@ -6,9 +6,7 @@ import Nav from '@/components/Nav';
 import Link from "next/link";
 
 const SettingsPage = () => {
-  const [name, setName] = useState('Arun');
-  const [email, setEmail] = useState('arun@example.com');
-  const [password, setPassword] = useState('********');
+ 
   const [notifications, setNotifications] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 

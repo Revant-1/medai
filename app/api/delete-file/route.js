@@ -21,7 +21,7 @@ export async function DELETE(req) {
     // Check if file exists before attempting to delete
     try {
       await access(filePath);
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.json(
         { error: 'File not found' },
         { status: 404 }
@@ -37,6 +37,7 @@ export async function DELETE(req) {
     });
   } catch (error) {
     console.error('Error deleting file:', error);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return NextResponse.json(
       { error: 'Failed to delete file', details: error.message },
       { status: 500 }
