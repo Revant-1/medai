@@ -12,7 +12,17 @@ interface Document {
   type: string;
   date: string;
   size?: string;
-  [key: string]: any;
+  modified?: string | Date;
+}
+
+// Define a file type for the API response
+interface FileResponse {
+  name: string;
+  type: string;
+  modified: string | number | Date;
+  size: number;
+  path?: string;
+  created?: string | Date;
 }
 
 const DocumentsPage = () => {
@@ -38,7 +48,7 @@ const DocumentsPage = () => {
   // Fetch documents on component mount
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDocuments = async () => {
     setIsLoading(true);
@@ -54,7 +64,7 @@ const DocumentsPage = () => {
       const data = await response.json();
       
       if (data.success) {
-        setDocuments(data.files.map((file: { name: any; type: any; modified: string | number | Date; size: any; }) => ({
+        setDocuments(data.files.map((file: FileResponse) => ({
           id: file.name,
           name: file.name,
           type: file.type,
@@ -80,18 +90,22 @@ const DocumentsPage = () => {
   
 
   // Filter documents based on search query
-  const filteredDocuments = documents
-    .filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => {
-      const aValue = a[sortBy];
-      const bValue = b[sortBy];
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
+  // Filter documents based on search query
+const filteredDocuments = documents
+.filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))
+.sort((a, b) => {
+  const aValue = a[sortBy as keyof Document] ?? ''; // Default to empty string if undefined
+  const bValue = b[sortBy as keyof Document] ?? ''; // Default to empty string if undefined
+
+  if (typeof aValue === "string" && typeof bValue === "string") {
+    return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+  } else if (typeof aValue === "number" && typeof bValue === "number") {
+    return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+  } else {
+    return 0; // If types don't match, keep order unchanged
+  }
+});
+
 
   // Fix the handleFileChange function type
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,6 +224,28 @@ const DocumentsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">
+      {/* Show loading indicator */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg">
+            <p>Loading...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Show error message if any */}
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+          <p>{error}</p>
+          <button 
+            onClick={() => setError('')}
+            className="absolute top-0 right-0 p-2"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      
       <div className="flex h-screen overflow-hidden">
         {/* Mobile Sidebar Toggle */}
         <button
@@ -233,7 +269,7 @@ const DocumentsPage = () => {
             <Link href="/home">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-lime-400 to-green-500 rounded-xl flex items-center justify-center">
-                  <User className="w-6 h-6 text-white" />
+                  <User className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-lime-600 to-green-600 bg-clip-text text-transparent">
                   MediSage
@@ -416,7 +452,7 @@ const DocumentsPage = () => {
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
             <div className="mb-4">
