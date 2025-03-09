@@ -22,9 +22,12 @@ const MediSage = () => {
     { text: "Analyze my symptoms: nausea, fatigue, loss of appetite", icon: "📋" },
   ];
 
-  const handleExampleClick = (example) => {
+  type Example = { text: string; icon: string };
+
+  const handleExampleClick = (example: Example["text"]) => {
     setInputValue(example);
   };
+  
 
   const sendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -91,12 +94,13 @@ const MediSage = () => {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">
