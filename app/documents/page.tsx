@@ -22,8 +22,7 @@ const DocumentsPage = () => {
   const [viewingDocument, setViewingDocument] = useState(null);
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+
 
   // Fetch documents on component mount
   useEffect(() => {

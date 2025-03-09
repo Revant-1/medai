@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { writeFile, mkdir, readdir } from 'fs/promises';
 import { join, parse } from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
 // Disable Next.js default body parsing
 export const config = {
