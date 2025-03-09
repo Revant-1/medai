@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
 export async function POST(req: Request) {
   try {
-    const { message, history } = await req.json();
+    const { message, history }: { message: string; history: ChatMessage[] } = await req.json();
 
     const apiKey = process.env.OPENROUTER_API_KEY || "";
     const siteUrl = process.env.SITE_URL || ""; // Optional
     const siteName = process.env.SITE_NAME || ""; // Optional
 
-    const messages = history.map((msg) => ({
+    const messages = history.map((msg: ChatMessage) => ({
       role: msg.role,
       content: [{ type: "text", text: msg.content }],
     }));
