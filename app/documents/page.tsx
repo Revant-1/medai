@@ -12,8 +12,7 @@ interface Document {
   type: string;
   date: string;
   size?: string;
-  url?: string;
-  pathname?: string;
+  modified?: string | Date;
 }
 
 // Define a file type for the API response
@@ -22,9 +21,8 @@ interface FileResponse {
   type: string;
   modified: string | number | Date;
   size: number;
-  url: string;
-  path: string;
-  pathname: string;
+  path?: string;
+  created?: string | Date;
 }
 
 const DocumentsPage = () => {
@@ -67,7 +65,7 @@ const DocumentsPage = () => {
       
       if (data.success) {
         setDocuments(data.files.map((file: FileResponse) => ({
-          id: file.pathname,
+          id: file.name,
           name: file.name,
           type: file.type,
           date: new Date(file.modified).toLocaleDateString(),
@@ -94,18 +92,22 @@ const DocumentsPage = () => {
   
 
   // Filter documents based on search query
-  const filteredDocuments = documents
-    .filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => {
-      const aValue = a[sortBy as keyof Document];
-      const bValue = b[sortBy as keyof Document];
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
+  // Filter documents based on search query
+const filteredDocuments = documents
+.filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))
+.sort((a, b) => {
+  const aValue = a[sortBy as keyof Document] ?? ''; // Default to empty string if undefined
+  const bValue = b[sortBy as keyof Document] ?? ''; // Default to empty string if undefined
+
+  if (typeof aValue === "string" && typeof bValue === "string") {
+    return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+  } else if (typeof aValue === "number" && typeof bValue === "number") {
+    return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+  } else {
+    return 0; // If types don't match, keep order unchanged
+  }
+});
+
 
   // Fix the handleFileChange function type
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +153,7 @@ const DocumentsPage = () => {
   };
 
   // Fix the deleteDocument function parameter type
-  const deleteDocument = async (doc: Document) => {
+  const deleteDocument = async (filename: string | number) => {
     if (!confirm('Are you sure you want to delete this document?')) {
       return;
     }
@@ -202,13 +204,8 @@ const DocumentsPage = () => {
 
   // Fix the viewDocument function parameter type
   const viewDocument = (doc: Document) => {
-    // For images and PDFs, we can directly open the URL
-    if (['jpg', 'jpeg', 'png', 'gif', 'pdf'].includes(doc.type)) {
-      window.open(doc.url, '_blank');
-    } else {
-      // For other file types, use the view-file API
-      window.open(`/api/view-file?pathname=${encodeURIComponent(doc.pathname)}`, '_blank');
-    }
+    // Open the document in a new tab
+    window.open(`/api/view-file?filename=${encodeURIComponent(doc.name)}`, '_blank');
   };
 
   const getFileIcon = (type: string) => {
