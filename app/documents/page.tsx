@@ -5,10 +5,20 @@ import { User, Menu, Upload, Trash, Edit, Eye, X, Check, FileText, Image, File }
 import Nav from '@/components/Nav';
 import Link from "next/link";
 
+// Fix the document type definition
+interface Document {
+  id: string | number;
+  name: string;
+  type: string;
+  date: string;
+  size?: string;
+  [key: string]: any;
+}
+
 const DocumentsPage = () => {
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [documents, setDocuments] = useState([
+  const [documents, setDocuments] = useState<Document[]>([
     { id: 1, name: 'Medical Report 2023', type: 'pdf', date: '2023-10-15' },
     { id: 2, name: 'Prescription 04/2022', type: 'pdf', date: '2022-04-22' },
     { id: 3, name: 'Lab Results 06/2021', type: 'pdf', date: '2021-06-10' },
@@ -16,16 +26,14 @@ const DocumentsPage = () => {
   ]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [editingDocument, setEditingDocument] = useState(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [newFileName, setNewFileName] = useState('');
-  const [viewingDocument, setViewingDocument] = useState(null);
+  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [IsLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(false);
-
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Fetch documents on component mount
   useEffect(() => {
@@ -46,7 +54,7 @@ const DocumentsPage = () => {
       const data = await response.json();
       
       if (data.success) {
-        setDocuments(data.files.map(file => ({
+        setDocuments(data.files.map((file: { name: any; type: any; modified: string | number | Date; size: any; }) => ({
           id: file.name,
           name: file.name,
           type: file.type,
@@ -64,11 +72,12 @@ const DocumentsPage = () => {
     }
   };
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     else return (bytes / 1048576).toFixed(1) + ' MB';
   };
+  
 
   // Filter documents based on search query
   const filteredDocuments = documents
@@ -84,8 +93,8 @@ const DocumentsPage = () => {
       }
     });
 
-  // Handle file upload
-  const handleFileChange = (e) => {
+  // Fix the handleFileChange function type
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
     }
@@ -127,8 +136,8 @@ const DocumentsPage = () => {
     }
   };
 
-  // CRUD operations
-  const deleteDocument = async (filename) => {
+  // Fix the deleteDocument function parameter type
+  const deleteDocument = async (filename: string | number) => {
     if (!confirm('Are you sure you want to delete this document?')) {
       return;
     }
@@ -160,7 +169,8 @@ const DocumentsPage = () => {
     }
   };
 
-  const startEditDocument = (doc) => {
+  // Fix the startEditDocument function parameter type
+  const startEditDocument = (doc: Document) => {
     setEditingDocument(doc);
     setNewFileName(doc.name);
   };
@@ -169,19 +179,20 @@ const DocumentsPage = () => {
     if (!newFileName.trim()) return;
     
     setDocuments(documents.map(doc => 
-      doc.id === editingDocument.id 
+      doc.id === editingDocument?.id 
         ? { ...doc, name: newFileName } 
         : doc
     ));
     setEditingDocument(null);
   };
 
-  const viewDocument = (doc) => {
+  // Fix the viewDocument function parameter type
+  const viewDocument = (doc: Document) => {
     // Open the document in a new tab
     window.open(`/api/view-file?filename=${encodeURIComponent(doc.name)}`, '_blank');
   };
 
-  const getFileIcon = (type) => {
+  const getFileIcon = (type: string) => {
     switch (type) {
       case 'pdf':
         return <FileText className="h-8 w-8 text-red-500" />;
@@ -411,7 +422,7 @@ const DocumentsPage = () => {
             <div className="mb-4">
               <div 
                 className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50"
-                onClick={() => fileInputRef.current.click()}
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-1">
