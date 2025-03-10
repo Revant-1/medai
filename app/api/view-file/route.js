@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { get } from '@vercel/blob';
+import { getDownloadUrl } from '@vercel/blob';
 
 export async function GET(req) {
   try {
@@ -13,18 +13,25 @@ export async function GET(req) {
       );
     }
     
-    // Get the blob
-    const blob = await get(pathname);
-    
-    if (!blob) {
+    try {
+      // Get the download URL for the blob
+      const blobUrl = await getDownloadUrl(pathname);
+      
+      if (!blobUrl) {
+        return NextResponse.json(
+          { error: 'File not found' },
+          { status: 404 }
+        );
+      }
+      
+      // Redirect to the blob URL (which is publicly accessible)
+      return NextResponse.redirect(blobUrl);
+    } catch (error) {
       return NextResponse.json(
-        { error: 'File not found' },
+        { error: 'File not found', details: error.message },
         { status: 404 }
       );
     }
-    
-    // Redirect to the blob URL (which is publicly accessible)
-    return NextResponse.redirect(blob.url);
   } catch (error) {
     console.error('Error viewing file:', error);
     return NextResponse.json(

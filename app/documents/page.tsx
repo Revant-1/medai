@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Menu, Upload, Trash, Edit, Eye, X, Check, FileText, Image, File } from "lucide-react";
+import { User, Menu, Upload, Trash, Edit, Eye, X, Check, FileText, Image, File, MessageSquare, Loader2, Send } from "lucide-react";
 import Nav from '@/components/Nav';
 import Link from "next/link";
 
@@ -12,7 +12,8 @@ interface Document {
   type: string;
   date: string;
   size?: string;
-  modified?: string | Date;
+  url?: string;
+  pathname?: string;
 }
 
 // Define a file type for the API response
@@ -44,6 +45,12 @@ const DocumentsPage = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [chatDocument, setChatDocument] = useState<Document | null>(null);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatResponse, setChatResponse] = useState('');
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   // Fetch documents on component mount
   useEffect(() => {
@@ -152,8 +159,8 @@ const filteredDocuments = documents
     }
   };
 
-  // Fix the deleteDocument function parameter type
-  const deleteDocument = async (filename: string | number) => {
+  // Fix the deleteDocument function
+  const deleteDocument = async (doc: Document) => {
     if (!confirm('Are you sure you want to delete this document?')) {
       return;
     }
@@ -202,10 +209,15 @@ const filteredDocuments = documents
     setEditingDocument(null);
   };
 
-  // Fix the viewDocument function parameter type
+  // Fix the viewDocument function
   const viewDocument = (doc: Document) => {
-    // Open the document in a new tab
-    window.open(`/api/view-file?filename=${encodeURIComponent(doc.name)}`, '_blank');
+    if (doc.url) {
+      // If we have a direct URL (from Vercel Blob), use it
+      window.open(doc.url, '_blank');
+    } else {
+      // Fallback to the view-file API
+      window.open(`/api/view-file?pathname=${encodeURIComponent(doc.pathname || '')}`, '_blank');
+    }
   };
 
   const getFileIcon = (type: string) => {
@@ -221,6 +233,50 @@ const filteredDocuments = documents
         return <Image className="h-8 w-8 text-green-500" />;
       default:
         return <File className="h-8 w-8 text-gray-500" />;
+    }
+  };
+
+  // Add a function to start a chat with a document
+  const startDocumentChat = (doc: Document) => {
+    setChatDocument(doc);
+    setIsChatModalOpen(true);
+    setChatMessage('');
+    setChatResponse('');
+    setChatId(null);
+  };
+
+  // Add a function to send a message to the document chat API
+  const sendChatMessage = async () => {
+    if (!chatDocument || !chatMessage.trim()) return;
+    
+    setIsChatLoading(true);
+    
+    try {
+      const response = await fetch('/api/chat-with-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: chatMessage,
+          documentPath: chatDocument.pathname,
+          chatId: chatId
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setChatResponse(data.response);
+        setChatId(data.chatId);
+      } else {
+        setChatResponse(`Error: ${data.error || 'Failed to process your request'}`);
+      }
+    } catch (error) {
+      console.error('Error sending chat message:', error);
+      setChatResponse('Error: Failed to communicate with the server');
+    } finally {
+      setIsChatLoading(false);
     }
   };
 
@@ -407,6 +463,13 @@ const filteredDocuments = documents
                             <Eye className="h-5 w-5" />
                           </button>
                           <button
+                            onClick={() => startDocumentChat(doc)}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                            title="Chat with Document"
+                          >
+                            <MessageSquare className="h-5 w-5" />
+                          </button>
+                          <button
                             onClick={() => startEditDocument(doc)}
                             className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                             title="Rename"
@@ -569,6 +632,60 @@ const filteredDocuments = documents
                 </svg>
                 <span>Download</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Chat Modal */}
+      {isChatModalOpen && chatDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-4/5 flex flex-col shadow-xl">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-medium">Chat with {chatDocument.name}</h3>
+              <button 
+                onClick={() => setIsChatModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-auto bg-gray-50">
+              {chatResponse && (
+                <div className="mb-4">
+                  <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <p className="text-gray-800 whitespace-pre-wrap">{chatResponse}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t">
+              <div className="flex gap-2">
+                <textarea
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  placeholder="Ask a question about this document..."
+                  className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  rows={3}
+                />
+                <button
+                  onClick={sendChatMessage}
+                  disabled={isChatLoading || !chatMessage.trim()}
+                  className={`px-4 py-2 rounded-md text-white self-end ${
+                    isChatLoading || !chatMessage.trim()
+                      ? 'bg-gray-300 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-lime-500 to-green-600 hover:opacity-90'
+                  }`}
+                >
+                  {isChatLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

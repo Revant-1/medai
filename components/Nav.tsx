@@ -11,7 +11,9 @@ const Nav = () => {
   const navItems = [
     { href: '/home', icon: BarChart2, label: 'Dashboard' },
     { href: '/chat', icon: MessageSquare, label: 'Chat' },
+    { href: '/chat-history', icon: MessageSquare, label: 'Chat History' },
     { href: '/documents', icon: FileText, label: 'Documents' },
+    { href: '/datadash', icon: FileText, label: 'Data Dashboard' },
     { href: '/settings', icon: Settings, label: 'Settings' },
     { href: '/profile', icon: User, label: 'Profile' },
   ];
@@ -38,6 +40,7 @@ const Nav = () => {
             </Link>
           );
         })}
+       
       </div>
 
       <div className="px-4">
