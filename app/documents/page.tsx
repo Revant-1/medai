@@ -18,6 +18,8 @@ interface Document {
 
 // Define a file type for the API response
 interface FileResponse {
+  pathname: any;
+  url: any;
   name: string;
   type: string;
   modified: string | number | Date;
@@ -98,7 +100,6 @@ const DocumentsPage = () => {
   };
   
 
-  // Filter documents based on search query
   // Filter documents based on search query
 const filteredDocuments = documents
 .filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { User, Camera, Paperclip, Loader2, Send, Menu } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { User, Camera, Paperclip, Loader2, Send, Menu, FileText } from "lucide-react";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 
@@ -15,6 +15,8 @@ const MediSage = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   const examples = [
     { text: "Review my MRI report and provide insights", icon: "🔍" },
@@ -22,22 +24,80 @@ const MediSage = () => {
     { text: "Analyze my symptoms: nausea, fatigue, loss of appetite", icon: "📋" },
   ];
 
-  type Example = { text: string; icon: string };
+  // Fetch stored documents on component mount
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await fetch('/api/list-files');
+        const data = await response.json();
+        if (data.success) {
+          setDocuments(data.files);
+        }
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+      }
+    };
+    fetchDocuments();
+  }, []);
 
-  const handleExampleClick = (example: Example["text"]) => {
+  const handleExampleClick = (example) => {
     setInputValue(example);
   };
-  
 
-  const sendMessage = async () => {
-    if (!inputValue.trim()) return;
+  const sendMessage = async (documentUrl = null) => {
+    if (!inputValue.trim() && !documentUrl) return;
 
-    const userMessage = { sender: "user", text: inputValue };
+    // Create user message
+    const userMessage = { 
+      sender: "user", 
+      text: documentUrl 
+        ? `Analyzing document: ${documentUrl.split('/').pop()}` 
+        : inputValue 
+    };
+    
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
+    setShowDocuments(false);
 
     try {
+      // Prepare messages for API
+      const messageHistory = messages.map((msg) => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text,
+      }));
+
+      // Prepare the content for the current message
+      let currentContent;
+      if (documentUrl) {
+        // If sending a document, use multipart content with image_url
+        currentContent = [
+          {
+            type: "text",
+            text: "Given the following medical document, please analyze it and provide insights:"
+          },
+          {
+            type: "image_url",
+            image_url: { url: documentUrl }
+          }
+        ];
+      } else {
+        // If sending text only
+        currentContent = inputValue;
+      }
+
+      // Add current message to history
+      const payload = {
+        model: "google/gemini-2.0-flash-thinking-exp-1219:free",
+        messages: [
+          ...messageHistory,
+          { role: "user", content: currentContent }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      };
+
+      // Send request to OpenRouter API
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -46,20 +106,11 @@ const MediSage = () => {
           "HTTP-Referer": window.location.href,
           "X-Title": "MediSage",
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.0-flash-thinking-exp-1219:free",
-          messages: messages.map((msg) => ({
-            role: msg.sender === "user" ? "user" : "assistant",
-            content: msg.text,
-          })).concat({ role: "user", content: inputValue }),
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
-      // Check if response is not ok after parsing JSON
       if (!response.ok) {
         throw new Error(
           data.error?.message || 
@@ -67,7 +118,6 @@ const MediSage = () => {
         );
       }
 
-      // Safely access the response data with optional chaining and fallback
       const aiResponse = data?.choices?.[0]?.message?.content || null;
 
       if (!aiResponse) {
@@ -81,12 +131,11 @@ const MediSage = () => {
 
     } catch (error) {
       console.error("Error:", error);
-      // Add the error message to the chat
       setMessages((prev) => [
         ...prev,
         {
           sender: "system",
-          text: "I apologize, but I encountered an error. Please check your API key and try again.",
+          text: "I apologize, but I encountered an error while processing your request. Please check your API key and try again.",
         },
       ]);
     } finally {
@@ -94,13 +143,16 @@ const MediSage = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
-  
+
+  const handleDocumentSelect = (docUrl) => {
+    sendMessage(docUrl);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">
@@ -192,30 +244,57 @@ const MediSage = () => {
               </div>
             )}
 
-            <div className="mt-4 bg-white rounded-2xl shadow-sm p-3 flex items-center gap-2">
-              <textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Type your message here..."
-                className="flex-1 resize-none border-0 focus:ring-0 text-base p-2 max-h-32 min-h-[2.5rem]"
-                rows={1}
-              />
-              <div className="flex items-center gap-2 px-2">
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <Camera className="w-5 h-5 text-gray-400" />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <Paperclip className="w-5 h-5 text-gray-400" />
-                </button>
-                <button
-                  onClick={sendMessage}
-                  disabled={isLoading || !inputValue.trim()}
-                  className="p-2 bg-gradient-to-r from-lime-500 to-green-500 text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+            <div className="mt-4 bg-white rounded-2xl shadow-sm p-3 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Type your message here..."
+                  className="flex-1 resize-none border-0 focus:ring-0 text-base p-2 max-h-32 min-h-[2.5rem]"
+                  rows={1}
+                />
+                <div className="flex items-center gap-2 px-2">
+                  <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <Camera className="w-5 h-5 text-gray-400" />
+                  </button>
+                  <button 
+                    onClick={() => setShowDocuments(!showDocuments)}
+                    className={`p-2 rounded-full transition-colors ${showDocuments ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-400'}`}
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => sendMessage()}
+                    disabled={isLoading || (!inputValue.trim() && !showDocuments)}
+                    className="p-2 bg-gradient-to-r from-lime-500 to-green-500 text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
+
+              {showDocuments && documents.length > 0 && (
+                <div className="border-t pt-2 max-h-40 overflow-y-auto">
+                  <p className="text-xs text-gray-500 mb-1 px-2">Select a document to analyze:</p>
+                  {documents.map((doc, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleDocumentSelect(doc.url)}
+                      className="flex items-center gap-2 w-full px-2 py-1 hover:bg-gray-100 rounded text-left"
+                    >
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-600 truncate">{doc.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {showDocuments && documents.length === 0 && (
+                <div className="border-t pt-2">
+                  <p className="text-sm text-gray-500 px-2">No documents available. Upload documents in the Documents section.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

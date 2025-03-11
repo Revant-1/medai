@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 const HeartHealthForm = () => {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
     age: '',
@@ -18,6 +20,8 @@ const HeartHealthForm = () => {
     oldpeak: '',
     noofmajorvessels: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   // Animation variants
   const containerVariants = {
@@ -48,6 +52,41 @@ const HeartHealthForm = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/save-test-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          testType: 'heart-test-2',
+          formData,
+          userId: 'default' // Replace with actual user ID when authentication is implemented
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show success message and redirect to dashboard
+        alert('Assessment submitted successfully!');
+        router.push('/datadash');
+      } else {
+        setError(data.error || 'Failed to submit assessment');
+      }
+    } catch (error) {
+      console.error('Error submitting assessment:', error);
+      setError('Failed to submit assessment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Form steps
@@ -252,10 +291,14 @@ const HeartHealthForm = () => {
         <button
           type="submit"
           className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition-colors duration-300"
-          onClick={() => alert('Form submitted successfully!')}
+          onClick={handleSubmit}
+          disabled={isSubmitting}
         >
-          Submit Assessment
+          {isSubmitting ? 'Submitting...' : 'Submit Assessment'}
         </button>
+        {error && (
+          <p className="mt-2 text-red-600 text-sm">{error}</p>
+        )}
       </motion.div>
     </motion.div>
   ];

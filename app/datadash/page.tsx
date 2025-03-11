@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { User, Menu, Share2, Copy, Check, ArrowUpDown, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { User, Menu, Share2, Copy, Check, ArrowUpDown, ChevronDown, ChevronUp, Download, AlertTriangle } from 'lucide-react';
 import Nav from '@/components/Nav';
 import Link from 'next/link';
 import { 
@@ -9,6 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, Cell 
 } from 'recharts';
+import { saveAs } from 'file-saver';
 
 interface HealthData {
   userId: string;
@@ -19,53 +20,62 @@ interface HealthData {
   weight: { date: string; value: number }[];
 }
 
-interface TableRow {
-  id: number;
-  date: string;
-  heartRate: number;
-  bloodPressure: string;
-  cholesterol: number;
-  glucose: number;
-  weight: number;
+interface TestResult {
+  _id: string;
+  userId: string;
+  testType: string;
+  formData: any;
+  createdAt: string;
+  result: {
+    score: number;
+    risk: string;
+  };
 }
 
 const DataDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tableData, setTableData] = useState<TableRow[]>([]);
-  const [sortField, setSortField] = useState('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [activeTab, setActiveTab] = useState('overview');
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
 
-  // Fetch health data
+  // Fetch health data and test results
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/health-data');
         
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
+        // Fetch health metrics
+        const healthResponse = await fetch('/api/health-data?userId=default');
+        
+        if (!healthResponse.ok) {
+          throw new Error(`Error fetching health data: ${healthResponse.status}`);
         }
         
-        const data = await response.json();
+        const healthData = await healthResponse.json();
         
-        if (data.success) {
-          setHealthData(data.data);
-          
-          // Process data for the table
-          const processedData = processDataForTable(data.data);
-          setTableData(processedData);
-        } else {
-          setError(data.error || 'Failed to fetch health data');
+        if (healthData.success) {
+          setHealthData(healthData.data);
+        }
+        
+        // Fetch test results
+        const testsResponse = await fetch('/api/get-test-data?userId=default');
+        
+        if (!testsResponse.ok) {
+          throw new Error(`Error fetching test data: ${testsResponse.status}`);
+        }
+        
+        const testsData = await testsResponse.json();
+        
+        if (testsData.success) {
+          setTestResults(testsData.tests);
         }
       } catch (error) {
-        console.error('Error fetching health data:', error);
-        setError('Failed to load health data. Please try again.');
+        console.error('Error fetching data:', error);
+        setError('Failed to load data. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -73,57 +83,6 @@ const DataDashboard = () => {
     
     fetchData();
   }, []);
-
-  // Process data for the table
-  const processDataForTable = (data: HealthData): TableRow[] => {
-    const dates = data.heartRate.map(item => item.date);
-    
-    return dates.map((date, index) => {
-      const heartRateItem = data.heartRate.find(item => item.date === date) || { value: 0 };
-      const bloodPressureItem = data.bloodPressure.find(item => item.date === date) || { systolic: 0, diastolic: 0 };
-      const cholesterolItem = data.cholesterol.find(item => item.date === date) || { total: 0, ldl: 0, hdl: 0 };
-      const glucoseItem = data.glucose.find(item => item.date === date) || { value: 0 };
-      const weightItem = data.weight.find(item => item.date === date) || { value: 0 };
-      
-      return {
-        id: index + 1,
-        date,
-        heartRate: heartRateItem.value,
-        bloodPressure: `${bloodPressureItem.systolic}/${bloodPressureItem.diastolic}`,
-        cholesterol: cholesterolItem.total,
-        glucose: glucoseItem.value,
-        weight: weightItem.value
-      };
-    });
-  };
-
-  // Handle sorting
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  // Sort table data
-  const sortedTableData = [...tableData].sort((a, b) => {
-    let aValue = a[sortField as keyof TableRow];
-    let bValue = b[sortField as keyof TableRow];
-    
-    // Handle blood pressure special case
-    if (sortField === 'bloodPressure') {
-      aValue = parseInt((a.bloodPressure as string).split('/')[0]);
-      bValue = parseInt((b.bloodPressure as string).split('/')[0]);
-    }
-    
-    if (sortDirection === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
 
   // Calculate statistics
   const calculateStats = () => {
@@ -202,31 +161,56 @@ const DataDashboard = () => {
     }
   };
 
-  // Export data as CSV
-  const exportCSV = () => {
-    if (!tableData.length) return;
-    
-    const headers = Object.keys(tableData[0]).filter(key => key !== 'id');
-    const csvContent = [
-      headers.join(','),
-      ...tableData.map(row => 
-        headers.map(header => row[header as keyof TableRow]).join(',')
-      )
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'health_data.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  // Colors for charts
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  // Get test type display name
+  const getTestTypeName = (testType: string) => {
+    switch (testType) {
+      case 'heart-test-1':
+        return 'Heart Health Assessment 1';
+      case 'heart-test-2':
+        return 'Heart Health Assessment 2';
+      default:
+        return testType;
+    }
+  };
+
+  // Get risk color
+  const getRiskColor = (risk: string) => {
+    switch (risk) {
+      case 'High':
+        return 'text-red-600 bg-red-100';
+      case 'Moderate':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'Low':
+        return 'text-green-600 bg-green-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  // Export data as CSV
+  const exportCSV = () => {
+    if (!testResults.length) return;
+
+    const headers = ['Test Type', 'Date', 'Score', 'Risk'];
+    const csvContent = [
+      headers.join(','),
+      ...testResults.map(test => [
+        getTestTypeName(test.testType),
+        formatDate(test.createdAt),
+        test.result.score,
+        test.result.risk
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, 'test_results.csv');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">
@@ -277,7 +261,12 @@ const DataDashboard = () => {
               <div className="flex flex-wrap gap-3 mb-6 pl-16 lg:pl-0">
                 <Link href="/predictionTest-1">
                   <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                    Take Health Assessment
+                    Heart Test 1
+                  </button>
+                </Link>
+                <Link href="/predictionTest-2">
+                  <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                    Heart Test 2
                   </button>
                 </Link>
                 <button 
@@ -301,6 +290,9 @@ const DataDashboard = () => {
                   <Download className="w-4 h-4" />
                   Export Data
                 </button>
+                <Link href="/other-tests">
+                  <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">Other Tests</button>
+                </Link>
               </div>
               
               {/* Tabs */}

@@ -1,16 +1,18 @@
-export default async function handler(req, res) {
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
   }
 
   try {
-    const { messages } = req.body;
+    const { messages } = await req.json();
     
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, // Use a server-side key
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`, // Use a server-side key
       },
       body: JSON.stringify({
         model: "google/gemini-2.0-flash-thinking-exp-1219:free",
@@ -26,8 +28,8 @@ export default async function handler(req, res) {
       throw new Error(data.error?.message || "API request failed");
     }
 
-    res.status(200).json({ response: data.choices?.[0]?.message?.content });
+    return NextResponse.json({ response: data.choices?.[0]?.message?.content });
   } catch (error) {
-    res.status(500).json({ error: error.message || "Internal Server Error" });
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
