@@ -179,6 +179,17 @@ const DataDashboard = () => {
     }
   };
 
+  // const getGender = (testType: string) => {
+  //   switch (testType) {
+  //     case '0':
+  //       return 'Male';
+  //     case '1':
+  //       return 'Female';
+  //     default:
+  //       return getGender;
+  //   }
+  // };
+
   // Get risk color
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -440,6 +451,53 @@ const DataDashboard = () => {
                     </div>
                   </div>
                 )}
+                {activeTab === 'table' && (
+  <div className="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
+    <h3 className="text-lg font-semibold mb-4">Test Results</h3>
+
+    {testResults.length === 0 ? (
+      <p className="text-gray-500">No test data available.</p>
+    ) : (
+      <table className="min-w-full border border-gray-200">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="px-4 py-2 text-left border">Test Type</th>
+            <th className="px-4 py-2 text-left border">Age</th>
+            <th className="px-4 py-2 text-left border">Gender</th>
+            <th className="px-4 py-2 text-left border">Chest Pain</th>
+            <th className="px-4 py-2 text-left border">restingBP</th>
+            <th className="px-4 py-2 text-left border">serumcholestrol</th>
+            <th className="px-4 py-2 text-left border">fastingbloodsugar</th>
+            <th className="px-4 py-2 text-left border">restingrelectro</th>
+            <th className="px-4 py-2 text-left border">maxheartrate</th>
+            <th className="px-4 py-2 text-left border">exerciseangia</th>
+            <th className="px-4 py-2 text-left border">oldpeak</th>
+            <th className="px-4 py-2 text-left border">No. of Major Bessels</th>
+            <th className="px-4 py-2 text-left border">Date</th>
+            <th className="px-4 py-2 text-left border">Score</th>
+            <th className="px-4 py-2 text-left border">Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          {testResults.map((test) => (
+            <tr key={test._id} className="hover:bg-gray-50">
+              <td className="px-4 py-2 border">{(test.testType)}</td>
+              <td className="px-4 py-2 border">{(test.formData.age)}</td>
+              <td className="px-4 py-2 border">{(test.formData.gender)}</td>
+              <td className="px-4 py-2 border">{(test.formData.cp || test.formData.chestpain )}</td>
+              <td className="px-4 py-2 border">{formatDate(test.createdAt)}</td>
+              <td className="px-4 py-2 border">{test.result.score}</td>
+              <td className={`px-4 py-2 border ${getRiskColor(test.result.risk)}`}>
+                {test.result.risk}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+)}
+
               </>
             )}
           </div>
