@@ -1,22 +1,39 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { User, Camera, Paperclip, Loader2, Send, Menu, FileText } from "lucide-react";
 import Nav from "@/components/Nav";
 import Link from "next/link";
+import ReactMarkdown from 'react-markdown';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
+
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  timestamp: Date;
+  attachments?: Array<{
+    type: 'image' | 'document';
+    url: string;
+    name: string;
+  }>;
+}
 
 const MediSage = () => {
   const [inputValue, setInputValue] = useState("");
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Message[]>([
     {
-      sender: "system",
-      text: "Welcome to MediSage! I'm your AI health assistant powered by OpenRouter. How can I help you today?",
+      role: "system",
+      content: "Welcome to MediSage! I'm your AI health assistant powered by OpenRouter. How can I help you today?",
+      timestamp: new Date(),
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [documents, setDocuments] = useState([]);
-  const [showDocuments, setShowDocuments] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [showAttachments, setShowAttachments] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const examples = [
     { text: "Review my MRI report and provide insights", icon: "🔍" },
@@ -24,120 +41,103 @@ const MediSage = () => {
     { text: "Analyze my symptoms: nausea, fatigue, loss of appetite", icon: "📋" },
   ];
 
-  // Fetch stored documents on component mount
   useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        const response = await fetch('/api/list-files');
-        const data = await response.json();
-        if (data.success) {
-          setDocuments(data.files);
-        }
-      } catch (error) {
-        console.error('Error fetching documents:', error);
-      }
-    };
     fetchDocuments();
   }, []);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch('/api/list-files');
+      const data = await response.json();
+      setDocuments(data.files || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchDocuments();
+        setShowAttachments(false);
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    }
+  };
 
   const handleExampleClick = (example) => {
     setInputValue(example);
   };
 
-  const sendMessage = async (documentUrl = null) => {
-    if (!inputValue.trim() && !documentUrl) return;
+  const sendMessage = async (text: string, attachments?: any[]) => {
+    if (!text.trim() && (!attachments || attachments.length === 0)) return;
 
-    // Create user message
-    const userMessage = { 
-      sender: "user", 
-      text: documentUrl 
-        ? `Analyzing document: ${documentUrl.split('/').pop()}` 
-        : inputValue 
+    const formattedMessages = attachments && attachments.length > 0
+      ? [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: text },
+              ...attachments.map(att => ({
+                type: att.type === 'image' ? 'image_url' : 'document',
+                image_url: att.type === 'image' ? { url: att.url } : undefined,
+                text: att.type === 'document' ? att.name : undefined,
+              })),
+            ],
+            timestamp: new Date(),
+          }
+        ]
+      : [{ role: 'user', content: text, timestamp: new Date() }];
+
+    const newMessage: Message = {
+      role: 'user',
+      content: text,
+      timestamp: new Date(),
+      attachments,
     };
-    
-    setMessages((prev) => [...prev, userMessage]);
+
+    setMessages(prev => [...prev, newMessage]);
     setInputValue("");
     setIsLoading(true);
-    setShowDocuments(false);
 
     try {
-      // Prepare messages for API
-      const messageHistory = messages.map((msg) => ({
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.text,
-      }));
-
-      // Prepare the content for the current message
-      let currentContent;
-      if (documentUrl) {
-        // If sending a document, use multipart content with image_url
-        currentContent = [
-          {
-            type: "text",
-            text: "Given the following medical document, please analyze it and provide insights:"
-          },
-          {
-            type: "image_url",
-            image_url: { url: documentUrl }
-          }
-        ];
-      } else {
-        // If sending text only
-        currentContent = inputValue;
-      }
-
-      // Add current message to history
-      const payload = {
-        model: "google/gemini-2.0-flash-thinking-exp-1219:free",
-        messages: [
-          ...messageHistory,
-          { role: "user", content: currentContent }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      };
-
-      // Send request to OpenRouter API
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
+      const response = await fetch('/api/chat', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
-          "HTTP-Referer": window.location.href,
-          "X-Title": "MediSage",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          messages: formattedMessages,
+        }),
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error?.message || 
-          `API error: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const aiResponse = data?.choices?.[0]?.message?.content || null;
-
-      if (!aiResponse) {
-        throw new Error("No response received from the AI");
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { sender: "assistant", text: aiResponse },
-      ]);
-
+      
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date(),
+      }]);
     } catch (error) {
-      console.error("Error:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "system",
-          text: "I apologize, but I encountered an error while processing your request. Please check your API key and try again.",
-        },
-      ]);
+      console.error('Error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -146,12 +146,8 @@ const MediSage = () => {
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      sendMessage(inputValue);
     }
-  };
-
-  const handleDocumentSelect = (docUrl) => {
-    sendMessage(docUrl);
   };
 
   return (
@@ -201,24 +197,46 @@ const MediSage = () => {
           </div>
 
           <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full p-6">
-            <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pb-4" ref={chatContainerRef}>
               {messages.map((message, index) => (
-                <div
+                <motion.div
                   key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   className={`flex ${
-                    message.sender === "user" ? "justify-end" : "justify-start"
+                    message.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div
                     className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-                      message.sender === "user"
+                      message.role === "user"
                         ? "bg-gradient-to-r from-lime-500 to-green-500 text-white"
                         : "bg-white shadow-sm text-gray-800"
                     }`}
                   >
-                    {message.text}
+                    {message.attachments?.map((attachment, i) => (
+                      <div key={i} className="mb-2">
+                        {attachment.type === 'image' && (
+                          <Image
+                            src={attachment.url}
+                            alt="Attached image"
+                            width={300}
+                            height={200}
+                            className="rounded"
+                          />
+                        )}
+                        {attachment.type === 'document' && (
+                          <div className="text-sm text-gray-500">
+                            📎 {attachment.name}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <ReactMarkdown>
+                      {message.content}
+                    </ReactMarkdown>
                   </div>
-                </div>
+                </motion.div>
               ))}
               {isLoading && (
                 <div className="flex justify-start">
@@ -259,14 +277,14 @@ const MediSage = () => {
                     <Camera className="w-5 h-5 text-gray-400" />
                   </button>
                   <button 
-                    onClick={() => setShowDocuments(!showDocuments)}
-                    className={`p-2 rounded-full transition-colors ${showDocuments ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-400'}`}
+                    onClick={() => setShowAttachments(!showAttachments)}
+                    className={`p-2 rounded-full transition-colors ${showAttachments ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-400'}`}
                   >
                     <Paperclip className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => sendMessage()}
-                    disabled={isLoading || (!inputValue.trim() && !showDocuments)}
+                    onClick={() => sendMessage(inputValue)}
+                    disabled={isLoading || (!inputValue.trim() && !showAttachments)}
                     className="p-2 bg-gradient-to-r from-lime-500 to-green-500 text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
                     <Send className="w-5 h-5" />
@@ -274,13 +292,13 @@ const MediSage = () => {
                 </div>
               </div>
 
-              {showDocuments && documents.length > 0 && (
+              {showAttachments && documents.length > 0 && (
                 <div className="border-t pt-2 max-h-40 overflow-y-auto">
                   <p className="text-xs text-gray-500 mb-1 px-2">Select a document to analyze:</p>
                   {documents.map((doc, index) => (
                     <button
                       key={index}
-                      onClick={() => handleDocumentSelect(doc.url)}
+                      onClick={() => sendMessage(inputValue, [{ type: 'document', url: doc.url, name: doc.name }])}
                       className="flex items-center gap-2 w-full px-2 py-1 hover:bg-gray-100 rounded text-left"
                     >
                       <FileText className="w-4 h-4 text-gray-500" />
@@ -290,7 +308,7 @@ const MediSage = () => {
                 </div>
               )}
               
-              {showDocuments && documents.length === 0 && (
+              {showAttachments && documents.length === 0 && (
                 <div className="border-t pt-2">
                   <p className="text-sm text-gray-500 px-2">No documents available. Upload documents in the Documents section.</p>
                 </div>

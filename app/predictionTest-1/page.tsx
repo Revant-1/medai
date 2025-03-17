@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import TestReport from '@/components/TestReport';
 
 const HeartHealthForm = () => {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
+    name: '',
     age: '',
     gender: '',
     cp: '',
@@ -22,6 +24,8 @@ const HeartHealthForm = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showReport, setShowReport] = useState(false);
+  const [reportData, setReportData] = useState(null);
 
   // Animation variants
   const containerVariants = {
@@ -55,35 +59,40 @@ const HeartHealthForm = () => {
   };
 
   // Handle form submission
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setError('');
     
     try {
-      const response = await fetch('/api/save-test-data', {
+      const response = await fetch('/api/predict', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          testType: 'heart-test-1',
-          formData,
-          userId: 'default' // Replace with actual user ID when authentication is implemented
+          testType: 'test-1',
+          formData
         }),
       });
       
       const data = await response.json();
       
       if (data.success) {
-        // Show success message and redirect to dashboard
-        alert('Assessment submitted successfully!');
-        router.push('/datadash');
+        // Set report data and show report
+        setReportData({
+          name: formData.name,
+          testType: 'test-1',
+          formData,
+          prediction: data.data
+        });
+        setShowReport(true);
       } else {
-        setError(data.error || 'Failed to submit assessment');
+        setError(data.error || 'Failed to process prediction');
       }
     } catch (error) {
-      console.error('Error submitting assessment:', error);
-      setError('Failed to submit assessment. Please try again.');
+      console.error('Error:', error);
+      setError('Failed to process prediction. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -101,6 +110,19 @@ const HeartHealthForm = () => {
       className="space-y-6"
     >
       <motion.h2 variants={formVariants} className="text-2xl font-bold text-green-800 mb-6">Basic Information</motion.h2>
+      
+      <motion.div variants={formVariants} className="mb-4">
+        <label className="block text-green-700 mb-2">Full Name</label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          className="w-full p-3 border border-green-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+          placeholder="Enter your full name"
+          required
+        />
+      </motion.div>
       
       <motion.div variants={formVariants} className="mb-4">
         <label className="block text-green-700 mb-2">Age</label>
@@ -355,6 +377,14 @@ const HeartHealthForm = () => {
           </div>
         </div>
       </div>
+
+      {/* Add the TestReport component */}
+      {showReport && reportData && (
+        <TestReport 
+          data={reportData} 
+          onClose={() => setShowReport(false)} 
+        />
+      )}
     </div>
   );
 };

@@ -22,14 +22,15 @@ interface HealthData {
 
 interface TestResult {
   _id: string;
-  userId: string;
+  name: string;
   testType: string;
   formData: any;
-  createdAt: string;
-  result: {
-    score: number;
-    risk: string;
+  prediction: {
+    risk_score: number;
+    probability: number;
+    prediction: number;
   };
+  timestamp: string;
 }
 
 const DataDashboard = () => {
@@ -62,16 +63,12 @@ const DataDashboard = () => {
         }
         
         // Fetch test results
-        const testsResponse = await fetch('/api/get-test-data?userId=default');
-        
-        if (!testsResponse.ok) {
-          throw new Error(`Error fetching test data: ${testsResponse.status}`);
-        }
-        
-        const testsData = await testsResponse.json();
-        
-        if (testsData.success) {
-          setTestResults(testsData.tests);
+        const testResponse = await fetch('/api/test-results');
+        if (testResponse.ok) {
+          const data = await testResponse.json();
+          if (data.success) {
+            setTestResults(data.data);
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -213,14 +210,21 @@ const DataDashboard = () => {
       headers.join(','),
       ...testResults.map(test => [
         getTestTypeName(test.testType),
-        formatDate(test.createdAt),
-        test.result.score,
-        test.result.risk
+        formatDate(test.timestamp),
+        test.prediction.risk_score,
+        getRiskLevel(test.prediction.probability).text
       ].join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, 'test_results.csv');
+  };
+
+  // Get risk level
+  const getRiskLevel = (probability: number) => {
+    if (probability >= 75) return { text: "High Risk", color: "text-red-600" };
+    if (probability >= 50) return { text: "Moderate Risk", color: "text-yellow-600" };
+    return { text: "Low Risk", color: "text-green-600" };
   };
 
   return (
@@ -451,53 +455,169 @@ const DataDashboard = () => {
                     </div>
                   </div>
                 )}
+                {activeTab === 'charts' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Risk Distribution Chart */}
+                    <div className="bg-white p-6 rounded-xl shadow-md">
+                      <h3 className="text-lg font-semibold mb-4">Risk Distribution</h3>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Low Risk', value: testResults.filter(t => t.prediction.probability < 50).length },
+                                { name: 'Moderate Risk', value: testResults.filter(t => t.prediction.probability >= 50 && t.prediction.probability < 75).length },
+                                { name: 'High Risk', value: testResults.filter(t => t.prediction.probability >= 75).length }
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {testResults.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={['#10B981', '#FBBF24', '#EF4444'][index]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Risk Score Trend */}
+                    <div className="bg-white p-6 rounded-xl shadow-md">
+                      <h3 className="text-lg font-semibold mb-4">Risk Score Trend</h3>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={testResults.slice().reverse()}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="timestamp" 
+                              tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString()}
+                            />
+                            <YAxis />
+                            <Tooltip 
+                              labelFormatter={(timestamp) => new Date(timestamp).toLocaleString()}
+                              formatter={(value) => [`${value.toFixed(2)}`, 'Risk Score']}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="prediction.risk_score" 
+                              stroke="#10B981" 
+                              strokeWidth={2} 
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Test Type Distribution */}
+                    <div className="bg-white p-6 rounded-xl shadow-md">
+                      <h3 className="text-lg font-semibold mb-4">Test Type Distribution</h3>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={[
+                            { name: 'XGBoost Model', count: testResults.filter(t => t.testType === 'test-1').length },
+                            { name: 'Random Forest', count: testResults.filter(t => t.testType === 'test-2').length }
+                          ]}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="count" fill="#8884d8">
+                              <Cell fill="#10B981" />
+                              <Cell fill="#6366F1" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Probability Distribution */}
+                    <div className="bg-white p-6 rounded-xl shadow-md">
+                      <h3 className="text-lg font-semibold mb-4">Probability Distribution</h3>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={testResults.slice().reverse()}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="timestamp" 
+                              tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString()}
+                            />
+                            <YAxis domain={[0, 100]} />
+                            <Tooltip 
+                              labelFormatter={(timestamp) => new Date(timestamp).toLocaleString()}
+                              formatter={(value) => [`${value.toFixed(2)}%`, 'Probability']}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="prediction.probability" 
+                              stroke="#6366F1" 
+                              strokeWidth={2} 
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {activeTab === 'table' && (
-  <div className="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
-    <h3 className="text-lg font-semibold mb-4">Test Results</h3>
-
-    {testResults.length === 0 ? (
-      <p className="text-gray-500">No test data available.</p>
-    ) : (
-      <table className="min-w-full border border-gray-200">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="px-4 py-2 text-left border">Test Type</th>
-            <th className="px-4 py-2 text-left border">Age</th>
-            <th className="px-4 py-2 text-left border">Gender</th>
-            <th className="px-4 py-2 text-left border">Chest Pain</th>
-            <th className="px-4 py-2 text-left border">restingBP</th>
-            <th className="px-4 py-2 text-left border">serumcholestrol</th>
-            <th className="px-4 py-2 text-left border">fastingbloodsugar</th>
-            <th className="px-4 py-2 text-left border">restingrelectro</th>
-            <th className="px-4 py-2 text-left border">maxheartrate</th>
-            <th className="px-4 py-2 text-left border">exerciseangia</th>
-            <th className="px-4 py-2 text-left border">oldpeak</th>
-            <th className="px-4 py-2 text-left border">No. of Major Bessels</th>
-            <th className="px-4 py-2 text-left border">Date</th>
-            <th className="px-4 py-2 text-left border">Score</th>
-            <th className="px-4 py-2 text-left border">Risk</th>
-          </tr>
-        </thead>
-        <tbody>
-          {testResults.map((test) => (
-            <tr key={test._id} className="hover:bg-gray-50">
-              <td className="px-4 py-2 border">{(test.testType)}</td>
-              <td className="px-4 py-2 border">{(test.formData.age)}</td>
-              <td className="px-4 py-2 border">{(test.formData.gender)}</td>
-              <td className="px-4 py-2 border">{(test.formData.cp || test.formData.chestpain )}</td>
-              <td className="px-4 py-2 border">{formatDate(test.createdAt)}</td>
-              <td className="px-4 py-2 border">{test.result.score}</td>
-              <td className={`px-4 py-2 border ${getRiskColor(test.result.risk)}`}>
-                {test.result.risk}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-)}
-
+                  <div className="bg-white shadow rounded-lg overflow-hidden">
+                    <div className="px-4 py-5 sm:px-6 border-b">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        Test Results History
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Name
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Test Type
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Risk Level
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Probability
+                            </th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Date
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {testResults.map((result) => (
+                            <tr key={result._id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {result.name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {result.testType === 'test-1' ? 'XGBoost Model' : 'Random Forest Model'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {getRiskLevel(result.prediction.probability).text}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {result.prediction.probability.toFixed(2)}%
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(result.timestamp).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

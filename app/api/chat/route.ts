@@ -13,6 +13,8 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`, // Use a server-side key
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || '', // Optional
+        "X-Title": "MediSage", // Optional
       },
       body: JSON.stringify({
         model: "google/gemini-2.0-flash-thinking-exp-1219:free",

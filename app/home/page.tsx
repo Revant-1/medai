@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,36 @@ const MetricCard: React.FC<MetricCardProps> = ({ value, unit, label, color, icon
 
 const DashboardView = () => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [metrics, setMetrics] = useState({
+    heartRate: 0,
+    bloodPressure: 0,
+    spo2: 0,
+    cholesterol: 0
+  });
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch('/api/health-data?userId=default');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Calculate averages from the latest readings
+            setMetrics({
+              heartRate: data.data.heartRate[data.data.heartRate.length - 1]?.value || 0,
+              bloodPressure: data.data.bloodPressure[data.data.bloodPressure.length - 1]?.systolic || 0,
+              spo2: 98, // This could come from a different endpoint
+              cholesterol: data.data.cholesterol[data.data.cholesterol.length - 1]?.total || 0
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+      }
+    };
+
+    fetchMetrics();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,10 +117,34 @@ const DashboardView = () => {
             <div className="lg:col-span-9 space-y-6">
               {/* Metrics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <MetricCard value="65" unit="bpm" label="Heart Rate" color="bg-red-400" icon={Heart} />
-                <MetricCard value="120" unit="mmHg" label="Blood Pressure" color="bg-cyan-400" icon={Plus} />
-                <MetricCard value="91" unit="%" label="SpO2" color="bg-blue-500" icon={User} />
-                <MetricCard value="189" unit="mg/dL" label="Cholesterol levels" color="bg-orange-400" icon={Heart} />
+                <MetricCard 
+                  value={metrics.heartRate.toString()} 
+                  unit="bpm" 
+                  label="Heart Rate" 
+                  color="bg-red-400" 
+                  icon={Heart} 
+                />
+                <MetricCard 
+                  value={metrics.bloodPressure.toString()} 
+                  unit="mmHg" 
+                  label="Blood Pressure" 
+                  color="bg-cyan-400" 
+                  icon={Plus} 
+                />
+                <MetricCard 
+                  value={metrics.spo2.toString()} 
+                  unit="%" 
+                  label="SpO2" 
+                  color="bg-blue-500" 
+                  icon={User} 
+                />
+                <MetricCard 
+                  value={metrics.cholesterol.toString()} 
+                  unit="mg/dL" 
+                  label="Cholesterol levels" 
+                  color="bg-orange-400" 
+                  icon={Heart} 
+                />
               </div>
 
               {/* AI Chatbot */}
