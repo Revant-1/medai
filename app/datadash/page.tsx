@@ -39,7 +39,7 @@ const DataDashboard = () => {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('charts');
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
 
@@ -305,23 +305,11 @@ const DataDashboard = () => {
                   <Download className="w-4 h-4" />
                   Export Data
                 </button>
-                <Link href="/other-tests">
-                  <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">Other Tests</button>
-                </Link>
               </div>
               
               {/* Tabs */}
               <div className="flex border-b mb-6 pl-16 lg:pl-0">
-                <button
-                  className={`px-4 py-2 font-medium ${
-                    activeTab === 'overview' 
-                      ? 'text-green-600 border-b-2 border-green-600' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  onClick={() => setActiveTab('overview')}
-                >
-                  Overview
-                </button>
+                
                 <button
                   className={`px-4 py-2 font-medium ${
                     activeTab === 'charts' 
@@ -355,106 +343,7 @@ const DataDashboard = () => {
               </div>
             ) : (
               <>
-                {activeTab === 'overview' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Heart Rate Card */}
-                    <div className="bg-white p-6 rounded-xl shadow-md">
-                      <h3 className="text-lg font-semibold mb-4">Heart Rate</h3>
-                      <div className="flex justify-between mb-4">
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Average</p>
-                          <p className="text-2xl font-bold text-green-600">{stats?.heartRate.avg} <span className="text-sm font-normal">bpm</span></p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Min</p>
-                          <p className="text-2xl font-bold text-blue-600">{stats?.heartRate.min} <span className="text-sm font-normal">bpm</span></p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Max</p>
-                          <p className="text-2xl font-bold text-red-600">{stats?.heartRate.max} <span className="text-sm font-normal">bpm</span></p>
-                        </div>
-                      </div>
-                      <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={healthData?.heartRate}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="date" />
-                            <YAxis />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                    
-                    {/* Blood Pressure Card */}
-                    <div className="bg-white p-6 rounded-xl shadow-md">
-                      <h3 className="text-lg font-semibold mb-4">Blood Pressure</h3>
-                      <div className="flex justify-between mb-4">
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Average</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {stats?.bloodPressure.avgSystolic}/{stats?.bloodPressure.avgDiastolic}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Min</p>
-                          <p className="text-2xl font-bold text-blue-600">
-                            {stats?.bloodPressure.minSystolic}/{stats?.bloodPressure.minDiastolic}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Max</p>
-                          <p className="text-2xl font-bold text-red-600">
-                            {stats?.bloodPressure.maxSystolic}/{stats?.bloodPressure.maxDiastolic}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={healthData?.bloodPressure}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="date" />
-                            <YAxis />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" strokeWidth={2} name="Systolic" />
-                            <Line type="monotone" dataKey="diastolic" stroke="#3b82f6" strokeWidth={2} name="Diastolic" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                    
-                    {/* Cholesterol Card */}
-                    <div className="bg-white p-6 rounded-xl shadow-md">
-                      <h3 className="text-lg font-semibold mb-4">Cholesterol</h3>
-                      <div className="flex justify-between mb-4">
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Average</p>
-                          <p className="text-2xl font-bold text-green-600">{stats?.cholesterol.avg} <span className="text-sm font-normal">mg/dL</span></p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Min</p>
-                          <p className="text-2xl font-bold text-blue-600">{stats?.cholesterol.min} <span className="text-sm font-normal">mg/dL</span></p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-gray-500">Max</p>
-                          <p className="text-2xl font-bold text-red-600">{stats?.cholesterol.max} <span className="text-sm font-normal">mg/dL</span></p>
-                        </div>
-                      </div>
-                      <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={healthData?.cholesterol}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="date" />
-                            <YAxis />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} name="Total Cholesterol" />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                
                 {activeTab === 'charts' && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Risk Distribution Chart */}

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Menu, MessageSquare, Trash, X, Loader2 } from "lucide-react";
 import Nav from '@/components/Nav';
 import Link from "next/link";
+import { Calendar, Search } from "lucide-react";
 
 interface ChatMessage {
   role: string;
@@ -19,15 +20,26 @@ interface Chat {
   messages: ChatMessage[];
 }
 
+interface ChatHistoryItem {
+  id: string;
+  title: string;
+  lastMessage: string;
+  timestamp: Date;
+}
+
 const ChatHistoryPage = () => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const userId = "user123"; // Replace with actual user ID from auth
 
   useEffect(() => {
     fetchChats();
+    fetchChatHistory();
   }, []);
 
   const fetchChats = async () => {
@@ -46,6 +58,25 @@ const ChatHistoryPage = () => {
     } catch (error) {
       console.error('Error fetching chats:', error);
       setError('Failed to load chat history. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchChatHistory = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/chat-history?userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success && data.chats) {
+        setChatHistory(data.chats.map((chat: any) => ({
+          ...chat,
+          timestamp: new Date(chat.timestamp)
+        })));
+      }
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
     } finally {
       setIsLoading(false);
     }
@@ -94,6 +125,11 @@ const ChatHistoryPage = () => {
   const getDocumentName = (path: string) => {
     return path.split('/').pop() || 'Unknown Document';
   };
+
+  const filteredHistory = chatHistory.filter(chat => 
+    chat.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">

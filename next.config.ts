@@ -17,7 +17,8 @@ const nextConfig: NextConfig = {
     return config;
   },
   images: {
-    domains: ['i.postimg.cc'],
+    domains: ['i.postimg.cc', 'rfdkrbtbidsmxych.public.blob.vercel-storage.com'],
+
   },
   async rewrites() {
     return [
