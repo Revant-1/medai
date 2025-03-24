@@ -1,3 +1,6 @@
+Demo Video:
+[![Watch the video](https://img.youtube.com/vi/X_e-DJ95A_M/maxresdefault.jpg)](https://youtu.be/HUARlUp8i88)  
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
