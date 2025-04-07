@@ -3,37 +3,70 @@ Demo Video:
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+🫀 Cardiovascular Disease Risk Prediction using Machine Learning
+A machine learning-driven healthcare analytics system aimed at enhancing cardiovascular disease (CVD) risk assessment by leveraging structured clinical, lifestyle, and genetic data. This project was developed as part of a research initiative at Fr. C. Rodrigues Institute of Technology, Vashi.
 
-First, run the development server:
+📘 Abstract
+Cardiovascular diseases (CVDs) are a leading cause of global mortality. This project presents a hybrid machine learning framework for early detection and risk stratification of CVDs. Supervised algorithms including Logistic Regression, Support Vector Machines, Random Forest, and XGBoost were employed. The focus lies in optimizing model performance, handling class imbalance, and ensuring clinical interpretability through explainable AI techniques.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+🧠 Features
+🔍 CVD Risk Prediction using ML models
+⚙️ Advanced feature engineering
+⚖️ Handling class imbalance with SMOTE
+📊 Performance evaluation with accuracy, precision, recall, F1-score
+🔎 Explainable AI with SHAP and LIME
+🩺 Integration-ready for EHR and telemedicine systems
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+🛠️ Tech Stack
+Python
+Pandas, NumPy, Scikit-learn
+XGBoost
+Matplotlib, Seaborn
+SHAP, LIME (for explainability)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+🧪 Machine Learning Models Used
+Model	Purpose
+Logistic Regression	Baseline linear classifier
+SVM	High-dimensional margin-based classifier
+Random Forest	Ensemble method for robust prediction
+XGBoost	Boosted decision tree ensemble
+📂 Project Structure
+bash
+Copy
+Edit
+├── data/                     # Dataset and processed files
+├── models/                   # Trained models and pickles
+├── notebooks/                # Jupyter Notebooks for training & analysis
+├── src/                      # Main scripts for training/prediction
+├── outputs/                  # Plots and reports
+└── README.md                 # Project documentation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+🚀 How to Run
+Clone the repository
 
-## Learn More
+git clone https://github.com/your-username/cvd-risk-predictor.git
+cd cvd-risk-predictor
+Install dependencies
+pip install -r requirements.txt
+Run the main notebook or script
+jupyter notebook notebooks/CVD_Model_Training.ipynb
 
-To learn more about Next.js, take a look at the following resources:
+📈 Results
+XGBoost achieved the highest accuracy and generalization
+Feature importance analysis revealed blood pressure, cholesterol, and age as top predictors
+SHAP and LIME enabled model transparency for clinical use
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+🔍 Future Scope
+Integration with wearable health monitoring devices
+Expansion to prediction of other chronic diseases like diabetes
+Real-time predictive dashboards for hospital settings
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+👥 Authors
+Aryan Nair – nairaryan135@gmail.com
+Dhyan Patel – dhyanbpatel2005@gmail.com
+Steffi Varghese – steffiv875@gmail.com
+Revant Shinde – revantshinde@gmail.com
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Mentors:
+Dr. Smita Dange
+Dr. Shashikant Dugad
