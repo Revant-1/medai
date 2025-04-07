@@ -63,6 +63,7 @@ Real-time predictive dashboards for hospital settings
 
 👥 Authors
 Aryan Nair – nairaryan135@gmail.com
+
 Dhyan Patel – dhyanbpatel2005@gmail.com
 Steffi Varghese – steffiv875@gmail.com
 Revant Shinde – revantshinde@gmail.com
