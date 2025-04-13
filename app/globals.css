@@ -129,3 +129,180 @@ body {
 .animate-slide-in-up {
   animation: slideInUp 1s ease-out forwards;
 }
+
+/* Mobile App Styles */
+@media (max-width: 768px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+    touch-action: manipulation;
+  }
+
+  /* Add iOS-like momentum scrolling */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Add touch feedback */
+  .touch-feedback {
+    transition: transform 0.1s, opacity 0.1s;
+  }
+
+  .touch-feedback:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+
+  /* Mobile bottom navigation bar */
+  .mobile-tab-bar {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 -1px 10px rgba(0, 0, 0, 0.05);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  /* Pull to refresh indicator */
+  .pull-indicator {
+    height: 0;
+    overflow: hidden;
+    transition: height 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pull-active .pull-indicator {
+    height: 60px;
+  }
+
+  /* Mobile card styles */
+  .mobile-card {
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .mobile-card:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Mobile header */
+  .mobile-header {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Mobile button styles */
+  .mobile-button {
+    border-radius: 12px;
+    transition: transform 0.2s;
+    font-weight: 500;
+  }
+
+  .mobile-button:active {
+    transform: scale(0.96);
+  }
+
+  /* Mobile input styles */
+  .mobile-input {
+    border-radius: 12px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 12px 16px;
+  }
+}
+
+/* Mobile app animations */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s ease-out forwards;
+}
+
+/* Mobile app status bar */
+.mobile-status-bar {
+  height: env(safe-area-inset-top, 0);
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Mobile app bottom safe area */
+.mobile-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* Mobile app-like transitions */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.page-transition-exit {
+  opacity: 1;
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+/* Mobile app-like scrollbar */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+}
+
+/* Mobile app-like form elements */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevents iOS zoom */
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+  }
+
+  button {
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+  }
+}

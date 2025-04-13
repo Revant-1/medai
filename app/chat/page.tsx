@@ -1,543 +1,618 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect, useRef } from "react";
-import { User, Camera, Paperclip, Loader2, Send, Menu, FileText, X, UploadCloud } from "lucide-react";
-import Nav from "@/components/Nav";
-import Link from "next/link";
-import ReactMarkdown from 'react-markdown';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
-import { v4 as uuidv4 } from 'uuid';
-import { useSearchParams, useRouter } from 'next/navigation';
+import type React from "react"
 
-interface MessageContent {
-  type: string;
-  text?: string;
-  image_url?: {
-    url: string;
-  };
-}
+import { useState, useEffect, useRef } from "react"
+import DashboardLayout from "@/components/dashboard-layout"
+import { useAuth } from "@/contexts/auth-context"
+import { Send, Paperclip, ImageIcon, Loader2, FileText, X, FolderOpen } from "lucide-react"
+import { v4 as uuidv4 } from "uuid"
+import { motion, AnimatePresence } from "framer-motion"
+import ReactMarkdown from "react-markdown"
+import LoadingAnimation from "@/components/loading-animation"
 
 interface Message {
-  role: 'user' | 'assistant' | 'system';
-  content: string | MessageContent[];
-  timestamp: Date;
+  id: string
+  role: "user" | "assistant" | "system"
+  content: string
+  timestamp: Date
   attachments?: Array<{
-    type: 'image' | 'document';
-    url: string;
-    name: string;
-  }>;
+    type: "image" | "document"
+    url: string
+    name: string
+  }>
 }
 
-interface ChatHistory {
-  id: string;
-  title: string;
-  lastMessage: string;
-  timestamp: Date;
+interface Document {
+  url: string
+  pathname: string
+  name: string
+  type: string
+  size: number
+  modified: string
 }
 
-const MediSage = () => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const chatId = searchParams.get('id') || uuidv4();
-  
-  const [inputValue, setInputValue] = useState("");
+export default function Chat() {
+  const { user } = useAuth()
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: uuidv4(),
       role: "system",
-      content: "Welcome to MediSage! I'm your AI health assistant powered by OpenRouter. How can I help you today?",
+      content: "Welcome to MediSage! I'm your AI health assistant. How can I help you today?",
       timestamp: new Date(),
     },
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [showAttachments, setShowAttachments] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
-  const [historyList, setHistoryList] = useState<ChatHistory[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-  
-  const userId = "user123"; // Replace with actual user ID from your auth system
-
-  const examples = [
-    { text: "Review my MRI report and provide insights", icon: "🔍" },
-    { text: "Compare my blood test results", icon: "🩺" },
-    { text: "Analyze my symptoms: nausea, fatigue, loss of appetite", icon: "📋" },
-  ];
+  ])
+  const [inputValue, setInputValue] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [chatId, setChatId] = useState(uuidv4())
+  const [isUploading, setIsUploading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
+  const [showDocumentSelector, setShowDocumentSelector] = useState(false)
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([])
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
 
   useEffect(() => {
-    fetchDocuments();
-    fetchChatHistory();
-    
-    // If we have a chatId in URL params, load that chat
-    if (chatId && chatId !== 'new') {
-      loadChat(chatId);
-    }
-  }, [chatId]);
+    scrollToBottom()
+  }, [messages])
 
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    // Check if there's a chat ID in the URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlChatId = urlParams.get("id")
+
+    if (urlChatId) {
+      setChatId(urlChatId)
+      fetchChatHistory(urlChatId)
     }
-  }, [messages]);
+  }, [])
+
+  const fetchChatHistory = async (id: string) => {
+    try {
+      setIsLoading(true)
+      const response = await fetch(`/api/chat/${id}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.chat) {
+          // Convert the chat messages to our Message format
+          const chatMessages: Message[] = data.chat.messages.map((msg: any) => ({
+            id: uuidv4(),
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.timestamp),
+            attachments: msg.attachments,
+          }))
+
+          // Add the system welcome message if it doesn't exist
+          if (!chatMessages.some((msg) => msg.role === "system")) {
+            chatMessages.unshift({
+              id: uuidv4(),
+              role: "system",
+              content: "Welcome to MediSage! I'm your AI health assistant. How can I help you today?",
+              timestamp: new Date(),
+            })
+          }
+
+          setMessages(chatMessages)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching chat history:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch('/api/list-files');
-      const data = await response.json();
-      setDocuments(data.files || []);
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-    }
-  };
+      setIsLoadingDocuments(true)
+      const response = await fetch("/api/list-files")
 
-  const fetchChatHistory = async () => {
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setDocuments(data.files)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching documents:", error)
+    } finally {
+      setIsLoadingDocuments(false)
+    }
+  }
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files)
+
+      // Initialize upload progress for each file
+      const newProgress: { [key: string]: number } = {}
+      filesArray.forEach((file) => {
+        newProgress[file.name] = 0
+      })
+
+      setUploadProgress(newProgress)
+      setSelectedFiles((prev) => [...prev, ...filesArray])
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => {
+      const newFiles = [...prev]
+      const removedFile = newFiles[index]
+
+      // Remove progress tracking for this file
+      setUploadProgress((prev) => {
+        const newProgress = { ...prev }
+        delete newProgress[removedFile.name]
+        return newProgress
+      })
+
+      newFiles.splice(index, 1)
+      return newFiles
+    })
+  }
+
+  const removeSelectedDocument = (index: number) => {
+    setSelectedDocuments((prev) => {
+      const newDocs = [...prev]
+      newDocs.splice(index, 1)
+      return newDocs
+    })
+  }
+
+  const toggleDocumentSelector = () => {
+    if (!showDocumentSelector) {
+      fetchDocuments()
+    }
+    setShowDocumentSelector(!showDocumentSelector)
+  }
+
+  const selectDocument = (doc: Document) => {
+    if (!selectedDocuments.some((d) => d.pathname === doc.pathname)) {
+      setSelectedDocuments([...selectedDocuments, doc])
+    }
+  }
+
+  const uploadFile = async (file: File): Promise<{ type: string; url: string; name: string } | null> => {
     try {
-      const response = await fetch(`/api/chat-history?userId=${userId}`);
-      const data = await response.json();
-      if (data.success && data.chats) {
-        setHistoryList(data.chats);
-      }
+      const formData = new FormData()
+      formData.append("file", file)
+
+      // Create a custom XMLHttpRequest to track upload progress
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        xhr.upload.addEventListener("progress", (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100)
+            setUploadProgress((prev) => ({
+              ...prev,
+              [file.name]: percentComplete,
+            }))
+          }
+        })
+
+        xhr.addEventListener("load", async () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText)
+              if (data.success) {
+                resolve({
+                  type: file.type.startsWith("image/") ? "image" : "document",
+                  url: data.file.url,
+                  name: data.file.originalName,
+                })
+              } else {
+                reject(new Error(data.error || "Upload failed"))
+              }
+            } catch (error) {
+              reject(error)
+            }
+          } else {
+            reject(new Error(`HTTP error ${xhr.status}`))
+          }
+        })
+
+        xhr.addEventListener("error", () => reject(new Error("Network error")))
+        xhr.addEventListener("abort", () => reject(new Error("Upload aborted")))
+
+        xhr.open("POST", "/api/upload")
+        xhr.send(formData)
+      })
     } catch (error) {
-      console.error('Error fetching chat history:', error);
+      console.error("Error uploading file:", error)
+      return null
     }
-  };
+  }
 
-  const loadChat = async (id: string) => {
-    try {
-      const response = await fetch(`/api/chat-history?userId=${userId}&chatId=${id}`);
-      const data = await response.json();
-      if (data.success && data.messages) {
-        setMessages(data.messages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        })));
-      }
-    } catch (error) {
-      console.error('Error loading chat:', error);
-    }
-  };
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() && selectedFiles.length === 0 && selectedDocuments.length === 0) return
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    setIsUploading(selectedFiles.length > 0)
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (data.success) {
-        fetchDocuments();
-        setShowAttachments(false);
-      }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-    }
-  };
-
-  const handleExampleClick = (example) => {
-    setInputValue(example);
-  };
-
-  const toggleFileSelection = (doc: any) => {
-    const isSelected = selectedFiles.some(file => file.url === doc.url);
-    
-    if (isSelected) {
-      setSelectedFiles(selectedFiles.filter(file => file.url !== doc.url));
-    } else {
-      setSelectedFiles([...selectedFiles, doc]);
-    }
-  };
-
-  const sendMessage = async (text: string) => {
-    if (!text.trim() && selectedFiles.length === 0) return;
-
-    const formattedContent: MessageContent[] = [];
-    
-    // Add text content
-    if (text.trim()) {
-      formattedContent.push({ type: 'text', text });
-    }
-    
-    // Add selected files
-    selectedFiles.forEach(file => {
-      const isImage = file.name.match(/\.(jpeg|jpg|gif|png)$/i);
-      if (isImage) {
-        formattedContent.push({
-          type: 'image_url',
-          image_url: { url: file.url }
-        });
-      } else {
-        // For documents we include a text reference
-        formattedContent.push({
-          type: 'text',
-          text: `Document reference: ${file.name} at ${file.url}`
-        });
-      }
-    });
-
-    // Create human-readable display message
-    const displayMessage: Message = {
-      role: 'user',
-      content: text,
+    const newMessage: Message = {
+      id: uuidv4(),
+      role: "user",
+      content: inputValue,
       timestamp: new Date(),
-      attachments: selectedFiles.map(file => ({
-        type: file.name.match(/\.(jpeg|jpg|gif|png)$/i) ? 'image' : 'document',
-        url: file.url,
-        name: file.name
-      }))
-    };
+    }
 
-    setMessages(prev => [...prev, displayMessage]);
-    setInputValue("");
-    setIsLoading(true);
-    setSelectedFiles([]);
-    setShowAttachments(false);
+    // Handle file uploads if any
+    if (selectedFiles.length > 0 || selectedDocuments.length > 0) {
+      const uploadedAttachments = []
+
+      // Process new file uploads
+      for (const file of selectedFiles) {
+        try {
+          const attachment = await uploadFile(file)
+          if (attachment) {
+            uploadedAttachments.push(attachment)
+          }
+        } catch (error) {
+          console.error("Error uploading file:", error)
+        }
+      }
+
+      // Add selected documents from library
+      for (const doc of selectedDocuments) {
+        uploadedAttachments.push({
+          type: doc.type.match(/^(jpg|jpeg|png|gif|webp)$/i) ? "image" : "document",
+          url: doc.url,
+          name: doc.name,
+        })
+      }
+
+      if (uploadedAttachments.length > 0) {
+        newMessage.attachments = uploadedAttachments
+      }
+    }
+
+    setMessages((prev) => [...prev, newMessage])
+    setInputValue("")
+    setSelectedFiles([])
+    setSelectedDocuments([])
+    setIsUploading(false)
+    setIsLoading(true)
+    setShowDocumentSelector(false)
 
     try {
       // Format messages for API
-      const apiMessages = messages.map(msg => {
-        // For display messages, convert to API format
-        if (msg.attachments) {
-          const formattedContent: MessageContent[] = [];
-          
-          if (typeof msg.content === 'string' && msg.content.trim()) {
-            formattedContent.push({ type: 'text', text: msg.content });
-          }
-          
-          msg.attachments.forEach(att => {
-            if (att.type === 'image') {
-              formattedContent.push({
-                type: 'image_url',
-                image_url: { url: att.url }
-              });
-            } else {
-              formattedContent.push({
-                type: 'text',
-                text: `Document reference: ${att.name} at ${att.url}`
-              });
-            }
-          });
-          
-          return {
-            role: msg.role,
-            content: formattedContent
-          };
-        }
-        
-        // For messages already in API format
-        return {
+      const apiMessages = messages
+        .filter((msg) => msg.role !== "system")
+        .concat([newMessage])
+        .map((msg) => ({
           role: msg.role,
-          content: msg.content
-        };
-      });
-      
-      // Add current message
-      apiMessages.push({
-        role: 'user',
-        content: formattedContent
-      });
+          content: msg.content,
+          attachments: msg.attachments,
+        }))
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
+      const response = await fetch("/api/chat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           messages: apiMessages,
-          userId,
-          chatId
+          userId: user?.id || "anonymous",
+          chatId,
         }),
-      });
+      })
 
-      const data = await response.json();
-      
-      const newAssistantMessage = {
-        role: 'assistant' as const,
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to get response")
+      }
+
+      const assistantMessage: Message = {
+        id: uuidv4(),
+        role: "assistant",
         content: data.response,
         timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, newAssistantMessage]);
-      
-      // If this is a new chat, update the URL with the chatId
-      if (!searchParams.get('id')) {
-        router.push(`/chat?id=${chatId}`);
       }
-      
-      // Update chat history
-      fetchChatHistory();
-      
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(inputValue);
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (error) {
+      console.error("Error sending message:", error)
+
+      // Add error message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: uuidv4(),
+          role: "assistant",
+          content: "Sorry, there was an error processing your request. Please try again.",
+          timestamp: new Date(),
+        },
+      ])
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
+  const examples = [
+    "What are the symptoms of diabetes?",
+    "How can I improve my sleep quality?",
+    "What foods are good for heart health?",
+  ]
+
+  if (isLoading && messages.length <= 1) {
+    return (
+      <DashboardLayout title="Chat with MediSage">
+        <div className="flex justify-center items-center h-[calc(100vh-12rem)]">
+          <LoadingAnimation />
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-lime-50 to-gray-50">
-      <div className="flex h-screen">
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
-
-        <div
-          className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-30 w-64 bg-white shadow-lg flex flex-col`}
-        >
-          <div className="p-6 border-b">
-            <Link href="/home">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-lime-400 to-green-500 rounded-xl flex items-center justify-center">
-                  <User className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-lime-600 to-green-600 bg-clip-text text-transparent">
-                  MediSage
-                </span>
-              </div>
-            </Link>
-          </div>
-          
-          <div className="p-4 border-b">
-            <Link href="/chat?id=new">
-              <button className="w-full bg-green-100 text-green-600 font-medium py-2 px-4 rounded-lg hover:bg-green-200 transition-all flex items-center justify-center gap-2">
-                <span>New Chat</span>
-              </button>
-            </Link>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Chat History</h3>
-            <div className="space-y-2">
-              {historyList.length > 0 ? (
-                historyList.map((chat) => (
-                  <Link key={chat.id} href={`/chat?id=${chat.id}`}>
-                    <div className={`p-2 rounded-lg hover:bg-gray-100 cursor-pointer ${chat.id === chatId ? 'bg-green-50 border border-green-200' : ''}`}>
-                      <p className="font-medium text-gray-800 truncate">{chat.title}</p>
-                      <p className="text-xs text-gray-500 truncate">{new Date(chat.timestamp).toLocaleString()}</p>
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">No chat history</p>
-              )}
-            </div>
-          </div>
-          
-          <Nav />
-        </div>
-
-        <div className="flex-1 flex flex-col w-full">
-          <div className="p-6 bg-white shadow-sm">
-            <div className="max-w-4xl mx-auto">
-              <h1 className="text-2xl font-bold text-gray-800 mb-2 pl-16 lg:pl-0">
-                Your Personal Health Assistant
-              </h1>
-              <p className="text-gray-600 pl-16 lg:pl-0">
-                Powered by advanced AI to analyze, predict, and guide your health journey
-              </p>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full p-6">
-            <div className="flex-1 overflow-y-auto space-y-4 pb-4" ref={chatContainerRef}>
-              {messages.map((message, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+    <DashboardLayout title="Chat with MediSage">
+      <div className="flex flex-col h-[calc(100vh-12rem)] lg:h-[calc(100vh-8rem)]">
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-white rounded-lg shadow dark:bg-gray-800">
+          {messages
+            .filter((m) => m.role !== "system")
+            .map((message) => (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] md:max-w-[80%] px-4 py-3 rounded-2xl ${
+                    message.role === "user"
+                      ? "bg-gradient-to-r from-lime-500 to-green-500 text-white dark:from-lime-600 dark:to-green-600"
+                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                  }`}
                 >
-                  <div
-                    className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-                      message.role === "user"
-                        ? "bg-gradient-to-r from-lime-500 to-green-500 text-white"
-                        : "bg-white shadow-sm text-gray-800"
-                    }`}
-                  >
-                    {message.attachments?.map((attachment, i) => (
-                      <div key={i} className="mb-2">
-                        {attachment.type === 'image' && (
-                          <Image
-                            src={attachment.url}
+                  {message.attachments?.map((attachment, i) => (
+                    <div key={i} className="mb-2">
+                      {attachment.type === "image" ? (
+                        <div className="relative w-full max-w-xs h-40 mb-2 rounded overflow-hidden">
+                          <img
+                            src={attachment.url || "/placeholder.svg"}
                             alt="Attached image"
-                            width={300}
-                            height={200}
-                            className="rounded mb-2"
+                            className="object-cover w-full h-full"
                           />
-                        )}
-                        {attachment.type === 'document' && (
-                          <div className="text-sm bg-white/20 px-2 py-1 rounded mb-2 flex items-center">
-                            <FileText className="w-4 h-4 mr-1" />
-                            <span className="truncate">{attachment.name}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <ReactMarkdown>
-                      {typeof message.content === 'string' ? message.content : 'Complex message content'}
-                    </ReactMarkdown>
-                  </div>
-                </motion.div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white shadow-sm px-4 py-3 rounded-2xl">
-                    <Loader2 className="w-5 h-5 animate-spin text-lime-500" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {messages.length === 1 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {examples.map((example, index) => (
-                  <div
-                    key={index}
-                    onClick={() => handleExampleClick(example.text)}
-                    className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  >
-                    <div className="text-2xl mb-2">{example.icon}</div>
-                    <p className="text-gray-600 text-sm">{example.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-4 bg-white rounded-2xl shadow-sm p-3 flex flex-col gap-2">
-              {/* Selected Files Preview */}
-              {selectedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 border-b">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center bg-green-50 text-green-700 px-2 py-1 rounded text-sm">
-                      <span className="truncate max-w-[150px]">{file.name}</span>
-                      <button
-                        onClick={() => toggleFileSelection(file)}
-                        className="ml-1 text-green-700 hover:text-red-500"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="flex items-center gap-2">
-                <textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Type your message here..."
-                  className="flex-1 resize-none border-0 focus:ring-0 text-base p-2 max-h-32 min-h-[2.5rem]"
-                  rows={1}
-                />
-                <div className="flex items-center gap-2 px-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <Camera className="w-5 h-5 text-gray-400" />
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept="image/*"
-                  />
-                  <button 
-                    onClick={() => setShowAttachments(!showAttachments)}
-                    className={`p-2 rounded-full transition-colors ${showAttachments ? 'bg-green-100 text-green-600' : 'hover:bg-gray-100 text-gray-400'}`}
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => sendMessage(inputValue)}
-                    disabled={isLoading || (!inputValue.trim() && selectedFiles.length === 0)}
-                    className="p-2 bg-gradient-to-r from-lime-500 to-green-500 text-white rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              <AnimatePresence>
-                {showAttachments && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="border-t pt-2">
-                      <div className="flex justify-between items-center mb-2 px-2">
-                        <p className="text-sm font-medium text-gray-700">Select Documents</p>
-                        <button
-                          onClick={() => setShowAttachments(false)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                      
-                      {documents.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2">
-                          {documents.map((doc, index) => (
-                            <div
-                              key={index}
-                              onClick={() => toggleFileSelection(doc)}
-                              className={`
-                                p-3 rounded border cursor-pointer transition-all
-                                ${selectedFiles.some(file => file.url === doc.url)
-                                  ? 'bg-green-50 border-green-300 text-green-700'
-                                  : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}
-                              `}
-                            >
-                              <div className="flex flex-col items-center text-center">
-                                <FileText className={`w-8 h-8 mb-1 ${selectedFiles.some(file => file.url === doc.url) ? 'text-green-500' : 'text-gray-400'}`} />
-                                <span className="text-xs truncate w-full">{doc.name}</span>
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       ) : (
-                        <div className="p-4 bg-gray-50 rounded-lg text-center">
-                          <UploadCloud className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">No documents available</p>
-                          <Link href="/documents">
-                            <button className="mt-2 text-sm text-green-600 font-medium hover:text-green-700">
-                              Upload Documents
-                            </button>
-                          </Link>
+                        <div className="flex items-center gap-2 bg-white/20 dark:bg-black/20 p-2 rounded mb-2">
+                          <FileText className="w-4 h-4" />
+                          <span className="text-sm truncate">{attachment.name}</span>
                         </div>
                       )}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  ))}
+                  <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+              </motion.div>
+            ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 px-4 py-3 rounded-2xl dark:bg-gray-700">
+                <LoadingAnimation size="small" />
+              </div>
             </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Example Suggestions */}
+        {messages.length <= 1 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            {examples.map((example, index) => (
+              <button
+                key={index}
+                onClick={() => setInputValue(example)}
+                className="p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow text-left dark:bg-gray-800 dark:text-gray-200"
+              >
+                <p className="text-gray-800 text-sm dark:text-gray-200">{example}</p>
+              </button>
+            ))}
           </div>
+        )}
+
+        {/* Document Selector */}
+        <AnimatePresence>
+          {showDocumentSelector && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-white p-4 rounded-lg shadow-md mb-4 dark:bg-gray-800"
+            >
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium text-gray-800 dark:text-gray-200">Select Documents</h3>
+                <button
+                  onClick={() => setShowDocumentSelector(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {isLoadingDocuments ? (
+                <div className="flex justify-center py-4">
+                  <LoadingAnimation size="small" text="Loading documents..." />
+                </div>
+              ) : documents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4 dark:text-gray-400">
+                  No documents found. Upload documents in the Documents section.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {documents.map((doc) => (
+                    <button
+                      key={doc.pathname}
+                      onClick={() => selectDocument(doc)}
+                      className={`flex items-center gap-2 p-2 rounded-lg text-left hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                        selectedDocuments.some((d) => d.pathname === doc.pathname)
+                          ? "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                          : ""
+                      }`}
+                    >
+                      {doc.type.match(/^(jpg|jpeg|png|gif|webp)$/i) ? (
+                        <ImageIcon className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <FileText className="w-5 h-5 text-blue-500" />
+                      )}
+                      <div className="overflow-hidden">
+                        <p className="truncate text-sm font-medium dark:text-gray-200">{doc.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(doc.modified).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Selected Files */}
+        <AnimatePresence>
+          {(selectedFiles.length > 0 || selectedDocuments.length > 0) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex flex-wrap gap-2 mb-2 overflow-hidden"
+            >
+              {selectedFiles.map((file, index) => (
+                <motion.div
+                  key={`file-${index}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="flex items-center bg-white px-3 py-1 rounded-full shadow-sm relative dark:bg-gray-700"
+                >
+                  {file.type.startsWith("image/") ? (
+                    <ImageIcon className="w-4 h-4 mr-1 text-green-500" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-1 text-blue-500" />
+                  )}
+                  <span className="text-sm truncate max-w-[150px] dark:text-gray-200">{file.name}</span>
+
+                  {/* Progress indicator */}
+                  {uploadProgress[file.name] > 0 && uploadProgress[file.name] < 100 && (
+                    <div
+                      className="absolute bottom-0 left-0 h-1 bg-green-500 rounded-full"
+                      style={{ width: `${uploadProgress[file.name]}%` }}
+                    />
+                  )}
+
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="ml-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                    aria-label="Remove file"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </motion.div>
+              ))}
+
+              {selectedDocuments.map((doc, index) => (
+                <motion.div
+                  key={`doc-${doc.pathname}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="flex items-center bg-white px-3 py-1 rounded-full shadow-sm dark:bg-gray-700"
+                >
+                  {doc.type.match(/^(jpg|jpeg|png|gif|webp)$/i) ? (
+                    <ImageIcon className="w-4 h-4 mr-1 text-green-500" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-1 text-blue-500" />
+                  )}
+                  <span className="text-sm truncate max-w-[150px] dark:text-gray-200">{doc.name}</span>
+                  <button
+                    onClick={() => removeSelectedDocument(index)}
+                    className="ml-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                    aria-label="Remove document"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Input Area */}
+        <div className="flex items-center gap-2 bg-white p-3 rounded-lg shadow sticky bottom-0 z-10 dark:bg-gray-800">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+            disabled={isLoading || isUploading}
+            title="Upload file"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          <button
+            onClick={toggleDocumentSelector}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+            disabled={isLoading || isUploading}
+            title="Select from documents"
+          >
+            <FolderOpen className="w-5 h-5" />
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.txt"
+          />
+          <textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Type your message..."
+            className="flex-1 resize-none border-0 focus:ring-0 max-h-32 p-2 text-base dark:bg-gray-800 dark:text-gray-200"
+            rows={1}
+            disabled={isLoading || isUploading}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={
+              isLoading ||
+              isUploading ||
+              (!inputValue.trim() && selectedFiles.length === 0 && selectedDocuments.length === 0)
+            }
+            className={`p-2 rounded-full ${
+              isLoading ||
+              isUploading ||
+              (!inputValue.trim() && selectedFiles.length === 0 && selectedDocuments.length === 0)
+                ? "bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500"
+                : "bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700"
+            }`}
+          >
+            {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          </button>
         </div>
       </div>
-    </div>
-  );
-};
-
-export default MediSage;
+    </DashboardLayout>
+  )
+}
