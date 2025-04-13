@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Demo Video:
+[![Watch the video](https://img.youtube.com/vi/X_e-DJ95A_M/maxresdefault.jpg)](https://youtu.be/HUARlUp8i88)  
 
-## Getting Started
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app)
 
-First, run the development server:
+👉 Project Repository: https://github.com/Revant-1/Ml-Backend
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+🫀 Cardiovascular Disease Risk Prediction using Machine Learning:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+A machine learning-driven healthcare analytics system aimed at enhancing cardiovascular disease (CVD) risk assessment by leveraging structured clinical, lifestyle, and genetic data. This project was developed as part of a research initiative at Fr. C. Rodrigues Institute of Technology, Vashi.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+📘 Abstract:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Cardiovascular diseases (CVDs) are a leading cause of global mortality. This project presents a hybrid machine learning framework for early detection and risk stratification of CVDs. Supervised algorithms including Logistic Regression, Support Vector Machines, Random Forest, and XGBoost were employed. The focus lies in optimizing model performance, handling class imbalance, and ensuring clinical interpretability through explainable AI techniques.
 
-## Learn More
+🧠 Features
+🔍 CVD Risk Prediction using ML models
 
-To learn more about Next.js, take a look at the following resources:
+⚙️ Advanced feature engineering
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+⚖️ Handling class imbalance with SMOTE
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+📊 Performance evaluation with accuracy, precision, recall, F1-score
 
-## Deploy on Vercel
+🔎 Explainable AI with SHAP and LIME
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+🩺 Integration-ready for EHR and telemedicine systems
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+🛠️ Tech Stack
+Python
+
+Pandas, NumPy, Scikit-learn
+
+XGBoost
+
+Matplotlib, Seaborn
+
+SHAP, LIME (for explainability)
+
+🧪 Machine Learning Models Used:
+Model	Purpose:
+Logistic Regression	Baseline linear classifier
+
+SVM	High-dimensional margin-based classifier
+
+Random Forest	Ensemble method for robust prediction
+
+XGBoost	Boosted decision tree ensemble
+
+📂 Project Structure
+bash
+Copy
+Edit
+├── data/                     # Dataset and processed files
+├── models/                   # Trained models and pickles
+├── notebooks/                # Jupyter Notebooks for training & analysis
+├── src/                      # Main scripts for training/prediction
+├── outputs/                  # Plots and reports
+└── README.md                 # Project documentation
+
+🚀 How to Run
+Clone the repository:
+
+git clone https://github.com/your-username/cvd-risk-predictor.git
+
+cd cvd-risk-predictor
+
+Install dependencies
+
+pip install -r requirements.txt
+
+Run the main notebook or script
+
+jupyter notebook notebooks/CVD_Model_Training.ipynb
+
+📈 Results: 
+XGBoost achieved the highest accuracy and generalization
+
+Feature importance analysis revealed blood pressure, cholesterol, and age as top predictors
+
+SHAP and LIME enabled model transparency for clinical use
+
+🔍 Future Scope:
+Integration with wearable health monitoring devices
+
+Expansion to prediction of other chronic diseases like diabetes
+
+Real-time predictive dashboards for hospital settings
+
+👥 Authors
+Aryan Nair – nairaryan135@gmail.com
+
+Dhyan Patel – dhyanbpatel2005@gmail.com
+
+Steffi Varghese – steffiv875@gmail.com
+
+Revant Shinde – revantshinde@gmail.com
+
+Mentors:
+Dr. Smita Dange
+
+Dr. Shashikant Dugad
